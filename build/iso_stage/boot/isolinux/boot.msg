@@ -1,6 +1,7 @@
-
-   ( '>')
-  /) TC (\   Core is distributed with ABSOLUTELY NO WARRANTY.
- (/-_--_-\)           www.tinycorelinux.net
+ \17\0e=======================================================\07
+ \17\0f   Tiny Core Linux x64 + Fowo Package Manager Live    \07
+ \17\0e=======================================================\07
 
-Press <Enter> to begin or F2, F3, or F4 to view boot options.
+ Press [ENTER] to boot live environment with Fowo,
+ or type 'install' to run automated disk installation.
+

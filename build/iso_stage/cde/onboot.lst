@@ -1,0 +1,12 @@
+fowo.tcz
+git.tcz
+curl.tcz
+ca-certificates.tcz
+openssl.tcz
+libzstd.tcz
+expat2.tcz
+pcre21042.tcz
+squashfs-tools.tcz
+liblzma.tcz
+lzo.tcz
+liblz4.tcz

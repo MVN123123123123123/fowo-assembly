@@ -1,0 +1,18 @@
+Title:          liblz4.tcz
+Description:    lossless compression
+Version:        1.10.0
+Author:         see list of sites below
+Original-site:  see list of sites below
+Copying-policy: see list of sites below
+Size: 68KB
+Extension_by:   juanito
+Tags:           lossless compression
+Comments:       fast lossless compression algorithm
+                ----------
+                This extension contains:
+                lz4-1.10.0 - BSDv2/GPLv2 - https://github.com/lz4/lz4/releases/download/v1.10.0/lz4-1.10.0.tar.gz
+                ----------
+Change-log:     2018/12/17 first version
+                2019/10/15 updated 1.8.3 -> 1.9.2
+                2023/06/26 updated 1.9.2 -> 1.9.4
+Current:        2025/12/05 updated 1.9.4 -> 1.10.0
