@@ -87,7 +87,7 @@ section .data
     cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
     meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " >> %s", 0
     cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " >> %s", 0
-    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) system(", 34, "tce-load -wi ", 34, " pkg) }' %s", 0
+    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) system(", 34, "if command -v tce-load >/dev/null 2>&1; then tce-load -wi ", 34, " pkg ", 34, "; else %s install ", 34, " pkg ", 34, "; fi", 34, ") }' %s", 0
     
     ; TCZ packaging strings
     tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage", 0
@@ -103,6 +103,12 @@ section .data
     msg_tcz_moving db "Moving to TCE directory...", 10, 0
     msg_tcz_done db "TCZ package built and installed.", 10, 0
     
+    msg_normal_install db "Installing to system (Normal Linux)...", 10, 0
+    norm_make_install_cmd db "cd %s && sudo make install", 0
+    norm_cmake_install_cmd db "cd %s && sudo cmake --install build", 0
+    norm_meson_install_cmd db "cd %s && sudo meson install -C build", 0
+    norm_cargo_install_cmd db "for f in %s/target/release/*; do test -f $f && test -x $f && sudo cp $f /usr/local/bin/; done", 0
+    
     ; -----------------------------------------------
     ; Topology database strings
     ; -----------------------------------------------
@@ -117,6 +123,7 @@ section .data
     db_write_date db "DATE=%ld", 10, 0
     db_write_btype db "BUILD_TYPE=%d", 10, 0
     db_write_bconf db "BUILD_CONF=%s", 10, 0
+    db_write_tcz db "TCZ_MODE=%d", 10, 0
     
     ; DB read prefixes
     db_pfx_url db "URL=", 0
@@ -124,6 +131,7 @@ section .data
     db_pfx_date db "DATE=", 0
     db_pfx_btype db "BUILD_TYPE=", 0
     db_pfx_bconf db "BUILD_CONF=", 0
+    db_pfx_tcz db "TCZ_MODE=", 0
     
     ; Git commands for updater
     ls_remote_fmt db "git ls-remote %s HEAD 2>/dev/null | head -1 | cut -f1", 0
@@ -146,6 +154,11 @@ section .data
     self_invoke_edit db "%s -d install %s", 0
     self_invoke_noedit_prod db "%s install --no-edit %s", 0
     self_invoke_edit_prod db "%s install %s", 0
+    
+    self_invoke_tcz_noedit db "%s -d install --tcz --no-edit %s", 0
+    self_invoke_tcz_edit db "%s -d install --tcz %s", 0
+    self_invoke_tcz_noedit_prod db "%s install --tcz --no-edit %s", 0
+    self_invoke_tcz_edit_prod db "%s install --tcz %s", 0
     
     ; Misc
     db_ext db ".db", 0
@@ -171,6 +184,7 @@ section .bss
     stored_commit resb 128
     stored_bconf resb 256
     stored_btype resb 4
+    stored_tcz resb 1
     line_buf resb 1024
     pkg_name_buf resb 256
     self_path_buf resb 512
@@ -550,7 +564,8 @@ main:
     mov rdi, cmd_buf
     mov rsi, 1024
     mov rdx, install_deps_cmd
-    mov rcx, r12
+    mov rcx, self_path_buf
+    mov r8, r12
     xor eax, eax
     call snprintf
 
@@ -707,8 +722,68 @@ main:
     call save_topology
     
     cmp byte [tcz_mode], 1
-    jne .done
+    je .tcz_pipeline
     
+    ; --- Normal Linux Installation ---
+    mov rdi, msg_normal_install
+    xor eax, eax
+    call printf
+    
+    cmp byte [build_type], 1
+    je .norm_install_make
+    cmp byte [build_type], 2
+    je .norm_install_cmake
+    cmp byte [build_type], 3
+    je .norm_install_meson
+    cmp byte [build_type], 4
+    je .norm_install_cargo
+    jmp .done
+
+.norm_install_make:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, norm_make_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
+.norm_install_cmake:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, norm_cmake_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
+.norm_install_meson:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, norm_meson_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
+.norm_install_cargo:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, norm_cargo_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
+.tcz_pipeline:
     ; --- TCZ Packaging Pipeline ---
     mov rdi, msg_tcz_staging
     xor eax, eax
@@ -1139,6 +1214,13 @@ save_topology:
     xor eax, eax
     call fprintf
     
+    ; Write TCZ_MODE
+    movzx edx, byte [tcz_mode]
+    mov rdi, rbx
+    mov rsi, db_write_tcz
+    xor eax, eax
+    call fprintf
+    
     mov rdi, rbx
     call fclose
     
@@ -1198,6 +1280,7 @@ update_single_pkg:
     mov byte [stored_commit], 0
     mov byte [stored_bconf], 0
     mov byte [stored_btype], 0
+    mov byte [stored_tcz], 0
 
 .usp_read_loop:
     mov rdi, line_buf
@@ -1271,9 +1354,21 @@ update_single_pkg:
     mov rdx, 11             ; strlen("BUILD_TYPE=")
     call strncmp
     cmp eax, 0
-    jne .usp_read_loop
+    jne .usp_check_tcz
     mov al, [line_buf + 11]
     mov [stored_btype], al
+    jmp .usp_read_loop
+
+.usp_check_tcz:
+    mov rdi, line_buf
+    mov rsi, db_pfx_tcz
+    mov rdx, 9              ; strlen("TCZ_MODE=")
+    call strncmp
+    cmp eax, 0
+    jne .usp_read_loop
+    mov al, [line_buf + 9]
+    sub al, 48              ; char to int
+    mov [stored_tcz], al
     jmp .usp_read_loop
 
 .usp_read_done:
@@ -1391,20 +1486,28 @@ update_single_pkg:
     xor eax, eax
     call printf
     
+    cmp byte [stored_tcz], 1
+    je .usp_silent_tcz
+    
     cmp byte [debug_mode_g], 1
     je .usp_silent_dbg
-    mov rdi, cmd_buf2
-    mov rsi, 1024
     mov rdx, self_invoke_noedit_prod
-    mov rcx, self_path_buf
-    mov r8, stored_url
-    xor eax, eax
-    call snprintf
-    jmp .usp_run_self
+    jmp .usp_silent_format
 .usp_silent_dbg:
+    mov rdx, self_invoke_noedit
+    jmp .usp_silent_format
+    
+.usp_silent_tcz:
+    cmp byte [debug_mode_g], 1
+    je .usp_silent_tcz_dbg
+    mov rdx, self_invoke_tcz_noedit_prod
+    jmp .usp_silent_format
+.usp_silent_tcz_dbg:
+    mov rdx, self_invoke_tcz_noedit
+    
+.usp_silent_format:
     mov rdi, cmd_buf2
     mov rsi, 1024
-    mov rdx, self_invoke_noedit
     mov rcx, self_path_buf
     mov r8, stored_url
     xor eax, eax
@@ -1416,20 +1519,28 @@ update_single_pkg:
     xor eax, eax
     call printf
     
+    cmp byte [stored_tcz], 1
+    je .usp_full_tcz
+    
     cmp byte [debug_mode_g], 1
     je .usp_full_dbg
-    mov rdi, cmd_buf2
-    mov rsi, 1024
     mov rdx, self_invoke_edit_prod
-    mov rcx, self_path_buf
-    mov r8, stored_url
-    xor eax, eax
-    call snprintf
-    jmp .usp_run_self
+    jmp .usp_full_format
 .usp_full_dbg:
+    mov rdx, self_invoke_edit
+    jmp .usp_full_format
+    
+.usp_full_tcz:
+    cmp byte [debug_mode_g], 1
+    je .usp_full_tcz_dbg
+    mov rdx, self_invoke_tcz_edit_prod
+    jmp .usp_full_format
+.usp_full_tcz_dbg:
+    mov rdx, self_invoke_tcz_edit
+
+.usp_full_format:
     mov rdi, cmd_buf2
     mov rsi, 1024
-    mov rdx, self_invoke_edit
     mov rcx, self_path_buf
     mov r8, stored_url
     xor eax, eax
