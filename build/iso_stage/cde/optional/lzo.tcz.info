@@ -1,0 +1,16 @@
+Title:          lzo.tcz
+Description:    lzo data compression
+Version:        2.10
+Author:         see list of sites below
+Original-site:  see list of sites below
+Copying-policy: see list of sites below
+Size: 56KB
+Extension_by:   juanito
+Tags:	        lzo data lossless compression
+Comments:       portable lzo lossless data compression library
+                ----------
+                This extension contains:
+                lzo-2.10 - GPLv2 - http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz
+                ----------
+Change-log:     2014/07/05 first version
+Current:        2019/10/15 updated 2.08 -> 2.10
