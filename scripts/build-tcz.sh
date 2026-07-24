@@ -34,11 +34,36 @@ mkdir -p "$STAGE_DIR/usr/local/tce.installed"
 cp "$BUILD_DIR/fowo" "$STAGE_DIR/usr/local/bin/fowo"
 strip "$STAGE_DIR/usr/local/bin/fowo" 2>/dev/null || true
 
+# GUI Installer .desktop shortcut
+mkdir -p "$STAGE_DIR/usr/local/share/applications"
+cat > "$STAGE_DIR/usr/local/share/applications/fowo-installer.desktop" << 'EOF'
+[Desktop Entry]
+Name=Install Fowo OS
+Exec=aterm -e sudo /cde/install-tcl-fowo.sh
+Icon=system-run
+Terminal=false
+Type=Application
+Categories=System;
+EOF
+
 # Post-installation script executed by tce-load
 cat > "$STAGE_DIR/usr/local/tce.installed/$PKG_NAME" << 'EOF'
 #!/bin/sh
 if [ ! -e /lib64 ]; then
     ln -s /lib /lib64
+fi
+
+# Setup auto-installer on boot if autofowo is specified
+if id -u tc >/dev/null 2>&1; then
+    mkdir -p /home/tc/.X.d
+    cat > /home/tc/.X.d/fowo-autorun << 'EOM'
+#!/bin/sh
+if grep -q "autofowo" /proc/cmdline; then
+    aterm -e sudo /cde/install-tcl-fowo.sh
+fi
+EOM
+    chmod +x /home/tc/.X.d/fowo-autorun
+    chown -R tc:staff /home/tc/.X.d
 fi
 EOF
 chmod 755 "$STAGE_DIR/usr/local/tce.installed/$PKG_NAME"

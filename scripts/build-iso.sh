@@ -19,7 +19,7 @@ mkdir -p "$BUILD_DIR" "$CACHE_DIR" "$STAGE_DIR"
 echo "[1/6] Detecting newest Tiny Core Linux x64 release..."
 TCL_VER=""
 for ver in 17.x 16.x 15.x; do
-    ISO_TEST_URL="http://tinycorelinux.net/${ver}/x86_64/release/CorePure64-current.iso"
+    ISO_TEST_URL="http://tinycorelinux.net/${ver}/x86_64/release/TinyCorePure64-current.iso"
     if curl -sI "$ISO_TEST_URL" | grep -q "200 OK"; then
         TCL_VER="$ver"
         echo "Found latest release: TCL $TCL_VER"
@@ -32,9 +32,9 @@ if [ -z "$TCL_VER" ]; then
     TCL_VER="17.x"
 fi
 
-BASE_ISO_URL="http://tinycorelinux.net/${TCL_VER}/x86_64/release/CorePure64-current.iso"
+BASE_ISO_URL="http://tinycorelinux.net/${TCL_VER}/x86_64/release/TinyCorePure64-current.iso"
 TCZ_REPO_URL="http://tinycorelinux.net/${TCL_VER}/x86_64/tcz"
-CACHED_ISO="$CACHE_DIR/CorePure64-${TCL_VER}.iso"
+CACHED_ISO="$CACHE_DIR/TinyCorePure64-${TCL_VER}.iso"
 
 if [ ! -f "$CACHED_ISO" ]; then
     echo "Downloading $BASE_ISO_URL..."
@@ -125,12 +125,14 @@ if [ -f "$BUILD_DIR/fowo.tcz.dep" ]; then
 fi
 
 # Build onboot.lst
-echo "Generating cde/onboot.lst..."
+echo "Updating cde/onboot.lst..."
 ONBOOT_FILE="$CDE_DIR/onboot.lst"
-rm -f "$ONBOOT_FILE"
+touch "$ONBOOT_FILE"
 
-# Add fowo first, then dependencies
-echo "fowo.tcz" >> "$ONBOOT_FILE"
+# Add fowo first (if not present), then dependencies
+if ! grep -q "^fowo.tcz$" "$ONBOOT_FILE"; then
+    echo "fowo.tcz" >> "$ONBOOT_FILE"
+fi
 for dep in $FETCHED_DEPS; do
     if [ -f "$OPTIONAL_DIR/$dep" ]; then
         if ! grep -q "^$dep$" "$ONBOOT_FILE"; then
@@ -223,8 +225,7 @@ if [ -n "$MKSTANDALONE" ]; then
     EARLY_GRUB="/tmp/early-grub-$$.cfg"
     cat > "$EARLY_GRUB" << 'EOF'
 search --no-floppy --set=root --label TCL_FOWO_X64
-set prefix=($root)/boot/grub
-configfile $prefix/grub.cfg
+configfile ($root)/boot/grub/grub.cfg
 EOF
     $MKSTANDALONE -O x86_64-efi -o "$EFI_BOOT_FILE" "boot/grub/grub.cfg=$EARLY_GRUB"
     rm -f "$EARLY_GRUB"

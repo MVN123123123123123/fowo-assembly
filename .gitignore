@@ -9,3 +9,4 @@ AGENTS.md
 *.EFI
 *.efi
 *.cfg
+/build/
