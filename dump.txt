@@ -1,0 +1,564 @@
+
+./build/fowo:     file format elf64-x86-64
+
+
+Disassembly of section .plt:
+
+0000000000401000 <getenv@plt-0x10>:
+  401000:	ff 35 ea 1f 00 00    	push   0x1fea(%rip)        # 402ff0 <_GLOBAL_OFFSET_TABLE_+0x8>
+  401006:	ff 25 ec 1f 00 00    	jmp    *0x1fec(%rip)        # 402ff8 <_GLOBAL_OFFSET_TABLE_+0x10>
+  40100c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000401010 <getenv@plt>:
+  401010:	ff 25 ea 1f 00 00    	jmp    *0x1fea(%rip)        # 403000 <getenv@GLIBC_2.2.5>
+  401016:	68 00 00 00 00       	push   $0x0
+  40101b:	e9 e0 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401020 <fclose@plt>:
+  401020:	ff 25 e2 1f 00 00    	jmp    *0x1fe2(%rip)        # 403008 <fclose@GLIBC_2.2.5>
+  401026:	68 01 00 00 00       	push   $0x1
+  40102b:	e9 d0 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401030 <system@plt>:
+  401030:	ff 25 da 1f 00 00    	jmp    *0x1fda(%rip)        # 403010 <system@GLIBC_2.2.5>
+  401036:	68 02 00 00 00       	push   $0x2
+  40103b:	e9 c0 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401040 <printf@plt>:
+  401040:	ff 25 d2 1f 00 00    	jmp    *0x1fd2(%rip)        # 403018 <printf@GLIBC_2.2.5>
+  401046:	68 03 00 00 00       	push   $0x3
+  40104b:	e9 b0 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401050 <snprintf@plt>:
+  401050:	ff 25 ca 1f 00 00    	jmp    *0x1fca(%rip)        # 403020 <snprintf@GLIBC_2.2.5>
+  401056:	68 04 00 00 00       	push   $0x4
+  40105b:	e9 a0 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401060 <fputs@plt>:
+  401060:	ff 25 c2 1f 00 00    	jmp    *0x1fc2(%rip)        # 403028 <fputs@GLIBC_2.2.5>
+  401066:	68 05 00 00 00       	push   $0x5
+  40106b:	e9 90 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401070 <strcmp@plt>:
+  401070:	ff 25 ba 1f 00 00    	jmp    *0x1fba(%rip)        # 403030 <strcmp@GLIBC_2.2.5>
+  401076:	68 06 00 00 00       	push   $0x6
+  40107b:	e9 80 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401080 <access@plt>:
+  401080:	ff 25 b2 1f 00 00    	jmp    *0x1fb2(%rip)        # 403038 <access@GLIBC_2.2.5>
+  401086:	68 07 00 00 00       	push   $0x7
+  40108b:	e9 70 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+0000000000401090 <fopen@plt>:
+  401090:	ff 25 aa 1f 00 00    	jmp    *0x1faa(%rip)        # 403040 <fopen@GLIBC_2.2.5>
+  401096:	68 08 00 00 00       	push   $0x8
+  40109b:	e9 60 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+00000000004010a0 <exit@plt>:
+  4010a0:	ff 25 a2 1f 00 00    	jmp    *0x1fa2(%rip)        # 403048 <exit@GLIBC_2.2.5>
+  4010a6:	68 09 00 00 00       	push   $0x9
+  4010ab:	e9 50 ff ff ff       	jmp    401000 <getenv@plt-0x10>
+
+Disassembly of section .text:
+
+00000000004010b0 <_start>:
+  4010b0:	48 83 ec 08          	sub    $0x8,%rsp
+  4010b4:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+  4010b9:	48 8d 74 24 10       	lea    0x10(%rsp),%rsi
+  4010be:	e8 08 00 00 00       	call   4010cb <main>
+  4010c3:	48 89 c7             	mov    %rax,%rdi
+  4010c6:	e8 d5 ff ff ff       	call   4010a0 <exit@plt>
+
+00000000004010cb <main>:
+  4010cb:	55                   	push   %rbp
+  4010cc:	48 89 e5             	mov    %rsp,%rbp
+  4010cf:	53                   	push   %rbx
+  4010d0:	41 54                	push   %r12
+  4010d2:	41 55                	push   %r13
+  4010d4:	41 56                	push   %r14
+  4010d6:	41 57                	push   %r15
+  4010d8:	48 83 ec 08          	sub    $0x8,%rsp
+  4010dc:	49 89 fc             	mov    %rdi,%r12
+  4010df:	49 89 f5             	mov    %rsi,%r13
+  4010e2:	41 be 00 00 00 00    	mov    $0x0,%r14d
+  4010e8:	c6 05 0d 2d 00 00 00 	movb   $0x0,0x2d0d(%rip)        # 403dfc <tcz_mode>
+  4010ef:	c6 05 07 2d 00 00 00 	movb   $0x0,0x2d07(%rip)        # 403dfd <build_type>
+  4010f6:	49 83 fc 02          	cmp    $0x2,%r12
+  4010fa:	0f 8c ff 04 00 00    	jl     4015ff <main.usage>
+  401100:	49 8b 7d 08          	mov    0x8(%r13),%rdi
+  401104:	48 be 81 30 40 00 00 	movabs $0x403081,%rsi
+  40110b:	00 00 00 
+  40110e:	e8 5d ff ff ff       	call   401070 <strcmp@plt>
+  401113:	83 f8 00             	cmp    $0x0,%eax
+  401116:	75 61                	jne    401179 <main.no_debug>
+  401118:	41 be 01 00 00 00    	mov    $0x1,%r14d
+  40111e:	49 83 fc 04          	cmp    $0x4,%r12
+  401122:	0f 8c d7 04 00 00    	jl     4015ff <main.usage>
+  401128:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+  40112c:	48 be 79 30 40 00 00 	movabs $0x403079,%rsi
+  401133:	00 00 00 
+  401136:	e8 35 ff ff ff       	call   401070 <strcmp@plt>
+  40113b:	83 f8 00             	cmp    $0x0,%eax
+  40113e:	0f 85 bb 04 00 00    	jne    4015ff <main.usage>
+  401144:	49 8b 7d 18          	mov    0x18(%r13),%rdi
+  401148:	48 be 84 30 40 00 00 	movabs $0x403084,%rsi
+  40114f:	00 00 00 
+  401152:	e8 19 ff ff ff       	call   401070 <strcmp@plt>
+  401157:	83 f8 00             	cmp    $0x0,%eax
+  40115a:	75 17                	jne    401173 <main.no_tcz_debug>
+  40115c:	c6 05 99 2c 00 00 01 	movb   $0x1,0x2c99(%rip)        # 403dfc <tcz_mode>
+  401163:	49 83 fc 05          	cmp    $0x5,%r12
+  401167:	0f 8c 92 04 00 00    	jl     4015ff <main.usage>
+  40116d:	4d 8b 7d 20          	mov    0x20(%r13),%r15
+  401171:	eb 5f                	jmp    4011d2 <main.setup_paths>
+
+0000000000401173 <main.no_tcz_debug>:
+  401173:	4d 8b 7d 18          	mov    0x18(%r13),%r15
+  401177:	eb 59                	jmp    4011d2 <main.setup_paths>
+
+0000000000401179 <main.no_debug>:
+  401179:	49 83 fc 03          	cmp    $0x3,%r12
+  40117d:	0f 8c 7c 04 00 00    	jl     4015ff <main.usage>
+  401183:	49 8b 7d 08          	mov    0x8(%r13),%rdi
+  401187:	48 be 79 30 40 00 00 	movabs $0x403079,%rsi
+  40118e:	00 00 00 
+  401191:	e8 da fe ff ff       	call   401070 <strcmp@plt>
+  401196:	83 f8 00             	cmp    $0x0,%eax
+  401199:	0f 85 60 04 00 00    	jne    4015ff <main.usage>
+  40119f:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+  4011a3:	48 be 84 30 40 00 00 	movabs $0x403084,%rsi
+  4011aa:	00 00 00 
+  4011ad:	e8 be fe ff ff       	call   401070 <strcmp@plt>
+  4011b2:	83 f8 00             	cmp    $0x0,%eax
+  4011b5:	75 17                	jne    4011ce <main.no_tcz>
+  4011b7:	c6 05 3e 2c 00 00 01 	movb   $0x1,0x2c3e(%rip)        # 403dfc <tcz_mode>
+  4011be:	49 83 fc 04          	cmp    $0x4,%r12
+  4011c2:	0f 8c 37 04 00 00    	jl     4015ff <main.usage>
+  4011c8:	4d 8b 7d 18          	mov    0x18(%r13),%r15
+  4011cc:	eb 04                	jmp    4011d2 <main.setup_paths>
+
+00000000004011ce <main.no_tcz>:
+  4011ce:	4d 8b 7d 10          	mov    0x10(%r13),%r15
+
+00000000004011d2 <main.setup_paths>:
+  4011d2:	49 83 fe 01          	cmp    $0x1,%r14
+  4011d6:	74 16                	je     4011ee <main.is_debug>
+  4011d8:	49 bc 8a 30 40 00 00 	movabs $0x40308a,%r12
+  4011df:	00 00 00 
+  4011e2:	49 bd 94 30 40 00 00 	movabs $0x403094,%r13
+  4011e9:	00 00 00 
+  4011ec:	eb 14                	jmp    401202 <main.open_config>
+
+00000000004011ee <main.is_debug>:
+  4011ee:	49 bc a4 30 40 00 00 	movabs $0x4030a4,%r12
+  4011f5:	00 00 00 
+  4011f8:	49 bd b5 30 40 00 00 	movabs $0x4030b5,%r13
+  4011ff:	00 00 00 
+
+0000000000401202 <main.open_config>:
+  401202:	4c 89 e7             	mov    %r12,%rdi
+  401205:	be 00 00 00 00       	mov    $0x0,%esi
+  40120a:	e8 71 fe ff ff       	call   401080 <access@plt>
+  40120f:	83 f8 00             	cmp    $0x0,%eax
+  401212:	74 4b                	je     40125f <main.clone>
+  401214:	4c 89 e7             	mov    %r12,%rdi
+  401217:	48 be d7 30 40 00 00 	movabs $0x4030d7,%rsi
+  40121e:	00 00 00 
+  401221:	e8 6a fe ff ff       	call   401090 <fopen@plt>
+  401226:	48 83 f8 00          	cmp    $0x0,%rax
+  40122a:	74 1f                	je     40124b <main.cfg_error>
+  40122c:	48 89 c3             	mov    %rax,%rbx
+  40122f:	48 bf da 30 40 00 00 	movabs $0x4030da,%rdi
+  401236:	00 00 00 
+  401239:	48 89 de             	mov    %rbx,%rsi
+  40123c:	e8 1f fe ff ff       	call   401060 <fputs@plt>
+  401241:	48 89 df             	mov    %rbx,%rdi
+  401244:	e8 d7 fd ff ff       	call   401020 <fclose@plt>
+  401249:	eb 14                	jmp    40125f <main.clone>
+
+000000000040124b <main.cfg_error>:
+  40124b:	48 bf 29 32 40 00 00 	movabs $0x403229,%rdi
+  401252:	00 00 00 
+  401255:	4c 89 e6             	mov    %r12,%rsi
+  401258:	31 c0                	xor    %eax,%eax
+  40125a:	e8 e1 fd ff ff       	call   401040 <printf@plt>
+
+000000000040125f <main.clone>:
+  40125f:	48 bf 86 32 40 00 00 	movabs $0x403286,%rdi
+  401266:	00 00 00 
+  401269:	4c 89 fe             	mov    %r15,%rsi
+  40126c:	4c 89 ea             	mov    %r13,%rdx
+  40126f:	31 c0                	xor    %eax,%eax
+  401271:	e8 ca fd ff ff       	call   401040 <printf@plt>
+  401276:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40127d:	00 00 00 
+  401280:	be 00 04 00 00       	mov    $0x400,%esi
+  401285:	48 ba 5d 32 40 00 00 	movabs $0x40325d,%rdx
+  40128c:	00 00 00 
+  40128f:	4c 89 e9             	mov    %r13,%rcx
+  401292:	4d 89 f8             	mov    %r15,%r8
+  401295:	4d 89 e9             	mov    %r13,%r9
+  401298:	31 c0                	xor    %eax,%eax
+  40129a:	e8 b1 fd ff ff       	call   401050 <snprintf@plt>
+  40129f:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4012a6:	00 00 00 
+  4012a9:	e8 82 fd ff ff       	call   401030 <system@plt>
+
+00000000004012ae <main.scan_deps>:
+  4012ae:	48 bf 18 34 40 00 00 	movabs $0x403418,%rdi
+  4012b5:	00 00 00 
+  4012b8:	31 c0                	xor    %eax,%eax
+  4012ba:	e8 81 fd ff ff       	call   401040 <printf@plt>
+  4012bf:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4012c6:	00 00 00 
+  4012c9:	be 00 04 00 00       	mov    $0x400,%esi
+  4012ce:	48 ba 32 34 40 00 00 	movabs $0x403432,%rdx
+  4012d5:	00 00 00 
+  4012d8:	4c 89 e9             	mov    %r13,%rcx
+  4012db:	4d 89 e0             	mov    %r12,%r8
+  4012de:	31 c0                	xor    %eax,%eax
+  4012e0:	e8 6b fd ff ff       	call   401050 <snprintf@plt>
+  4012e5:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4012ec:	00 00 00 
+  4012ef:	e8 3c fd ff ff       	call   401030 <system@plt>
+  4012f4:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4012fb:	00 00 00 
+  4012fe:	be 00 04 00 00       	mov    $0x400,%esi
+  401303:	48 ba 90 34 40 00 00 	movabs $0x403490,%rdx
+  40130a:	00 00 00 
+  40130d:	4c 89 e9             	mov    %r13,%rcx
+  401310:	4d 89 e0             	mov    %r12,%r8
+  401313:	31 c0                	xor    %eax,%eax
+  401315:	e8 36 fd ff ff       	call   401050 <snprintf@plt>
+  40131a:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401321:	00 00 00 
+  401324:	e8 07 fd ff ff       	call   401030 <system@plt>
+  401329:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401330:	00 00 00 
+  401333:	be 00 04 00 00       	mov    $0x400,%esi
+  401338:	48 ba d7 34 40 00 00 	movabs $0x4034d7,%rdx
+  40133f:	00 00 00 
+  401342:	4c 89 e9             	mov    %r13,%rcx
+  401345:	4d 89 e0             	mov    %r12,%r8
+  401348:	31 c0                	xor    %eax,%eax
+  40134a:	e8 01 fd ff ff       	call   401050 <snprintf@plt>
+  40134f:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401356:	00 00 00 
+  401359:	e8 d2 fc ff ff       	call   401030 <system@plt>
+
+000000000040135e <main.editor>:
+  40135e:	48 bf cb 30 40 00 00 	movabs $0x4030cb,%rdi
+  401365:	00 00 00 
+  401368:	e8 a3 fc ff ff       	call   401010 <getenv@plt>
+  40136d:	48 83 f8 00          	cmp    $0x0,%rax
+  401371:	75 0a                	jne    40137d <main.got_editor>
+  401373:	48 b8 d2 30 40 00 00 	movabs $0x4030d2,%rax
+  40137a:	00 00 00 
+
+000000000040137d <main.got_editor>:
+  40137d:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401384:	00 00 00 
+  401387:	be 00 04 00 00       	mov    $0x400,%esi
+  40138c:	48 ba 57 32 40 00 00 	movabs $0x403257,%rdx
+  401393:	00 00 00 
+  401396:	48 89 c1             	mov    %rax,%rcx
+  401399:	4d 89 e0             	mov    %r12,%r8
+  40139c:	31 c0                	xor    %eax,%eax
+  40139e:	e8 ad fc ff ff       	call   401050 <snprintf@plt>
+  4013a3:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4013aa:	00 00 00 
+  4013ad:	e8 7e fc ff ff       	call   401030 <system@plt>
+
+00000000004013b2 <main.check_meson>:
+  4013b2:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  4013b9:	00 00 00 
+  4013bc:	be 00 02 00 00       	mov    $0x200,%esi
+  4013c1:	48 ba b9 32 40 00 00 	movabs $0x4032b9,%rdx
+  4013c8:	00 00 00 
+  4013cb:	4c 89 e9             	mov    %r13,%rcx
+  4013ce:	31 c0                	xor    %eax,%eax
+  4013d0:	e8 7b fc ff ff       	call   401050 <snprintf@plt>
+  4013d5:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  4013dc:	00 00 00 
+  4013df:	be 00 00 00 00       	mov    $0x0,%esi
+  4013e4:	e8 97 fc ff ff       	call   401080 <access@plt>
+  4013e9:	83 f8 00             	cmp    $0x0,%eax
+  4013ec:	0f 84 5f 01 00 00    	je     401551 <main.do_meson>
+
+00000000004013f2 <main.check_cmake>:
+  4013f2:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  4013f9:	00 00 00 
+  4013fc:	be 00 02 00 00       	mov    $0x200,%esi
+  401401:	48 ba a7 32 40 00 00 	movabs $0x4032a7,%rdx
+  401408:	00 00 00 
+  40140b:	4c 89 e9             	mov    %r13,%rcx
+  40140e:	31 c0                	xor    %eax,%eax
+  401410:	e8 3b fc ff ff       	call   401050 <snprintf@plt>
+  401415:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  40141c:	00 00 00 
+  40141f:	be 00 00 00 00       	mov    $0x0,%esi
+  401424:	e8 57 fc ff ff       	call   401080 <access@plt>
+  401429:	83 f8 00             	cmp    $0x0,%eax
+  40142c:	0f 84 d0 00 00 00    	je     401502 <main.do_cmake>
+
+0000000000401432 <main.check_cargo>:
+  401432:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  401439:	00 00 00 
+  40143c:	be 00 02 00 00       	mov    $0x200,%esi
+  401441:	48 ba 9a 33 40 00 00 	movabs $0x40339a,%rdx
+  401448:	00 00 00 
+  40144b:	4c 89 e9             	mov    %r13,%rcx
+  40144e:	31 c0                	xor    %eax,%eax
+  401450:	e8 fb fb ff ff       	call   401050 <snprintf@plt>
+  401455:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  40145c:	00 00 00 
+  40145f:	be 00 00 00 00       	mov    $0x0,%esi
+  401464:	e8 17 fc ff ff       	call   401080 <access@plt>
+  401469:	83 f8 00             	cmp    $0x0,%eax
+  40146c:	0f 84 2b 01 00 00    	je     40159d <main.do_cargo>
+
+0000000000401472 <main.check_makefile>:
+  401472:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  401479:	00 00 00 
+  40147c:	be 00 02 00 00       	mov    $0x200,%esi
+  401481:	48 ba 9b 32 40 00 00 	movabs $0x40329b,%rdx
+  401488:	00 00 00 
+  40148b:	4c 89 e9             	mov    %r13,%rcx
+  40148e:	31 c0                	xor    %eax,%eax
+  401490:	e8 bb fb ff ff       	call   401050 <snprintf@plt>
+  401495:	48 bf fc 3b 40 00 00 	movabs $0x403bfc,%rdi
+  40149c:	00 00 00 
+  40149f:	be 00 00 00 00       	mov    $0x0,%esi
+  4014a4:	e8 d7 fb ff ff       	call   401080 <access@plt>
+  4014a9:	83 f8 00             	cmp    $0x0,%eax
+  4014ac:	74 05                	je     4014b3 <main.do_make>
+  4014ae:	e9 36 01 00 00       	jmp    4015e9 <main.unsupported>
+
+00000000004014b3 <main.do_make>:
+  4014b3:	c6 05 43 29 00 00 01 	movb   $0x1,0x2943(%rip)        # 403dfd <build_type>
+  4014ba:	48 bf c8 32 40 00 00 	movabs $0x4032c8,%rdi
+  4014c1:	00 00 00 
+  4014c4:	31 c0                	xor    %eax,%eax
+  4014c6:	e8 75 fb ff ff       	call   401040 <printf@plt>
+  4014cb:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4014d2:	00 00 00 
+  4014d5:	be 00 04 00 00       	mov    $0x400,%esi
+  4014da:	48 ba e5 32 40 00 00 	movabs $0x4032e5,%rdx
+  4014e1:	00 00 00 
+  4014e4:	4c 89 e9             	mov    %r13,%rcx
+  4014e7:	31 c0                	xor    %eax,%eax
+  4014e9:	e8 62 fb ff ff       	call   401050 <snprintf@plt>
+  4014ee:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4014f5:	00 00 00 
+  4014f8:	e8 33 fb ff ff       	call   401030 <system@plt>
+  4014fd:	e9 18 01 00 00       	jmp    40161a <main.post_build>
+
+0000000000401502 <main.do_cmake>:
+  401502:	c6 05 f4 28 00 00 02 	movb   $0x2,0x28f4(%rip)        # 403dfd <build_type>
+  401509:	48 bf f3 32 40 00 00 	movabs $0x4032f3,%rdi
+  401510:	00 00 00 
+  401513:	31 c0                	xor    %eax,%eax
+  401515:	e8 26 fb ff ff       	call   401040 <printf@plt>
+  40151a:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401521:	00 00 00 
+  401524:	be 00 04 00 00       	mov    $0x400,%esi
+  401529:	48 ba 16 33 40 00 00 	movabs $0x403316,%rdx
+  401530:	00 00 00 
+  401533:	4c 89 e9             	mov    %r13,%rcx
+  401536:	31 c0                	xor    %eax,%eax
+  401538:	e8 13 fb ff ff       	call   401050 <snprintf@plt>
+  40153d:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401544:	00 00 00 
+  401547:	e8 e4 fa ff ff       	call   401030 <system@plt>
+  40154c:	e9 c9 00 00 00       	jmp    40161a <main.post_build>
+
+0000000000401551 <main.do_meson>:
+  401551:	c6 05 a5 28 00 00 03 	movb   $0x3,0x28a5(%rip)        # 403dfd <build_type>
+  401558:	48 bf 45 33 40 00 00 	movabs $0x403345,%rdi
+  40155f:	00 00 00 
+  401562:	31 c0                	xor    %eax,%eax
+  401564:	e8 d7 fa ff ff       	call   401040 <printf@plt>
+  401569:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401570:	00 00 00 
+  401573:	be 00 04 00 00       	mov    $0x400,%esi
+  401578:	48 ba 65 33 40 00 00 	movabs $0x403365,%rdx
+  40157f:	00 00 00 
+  401582:	4c 89 e9             	mov    %r13,%rcx
+  401585:	31 c0                	xor    %eax,%eax
+  401587:	e8 c4 fa ff ff       	call   401050 <snprintf@plt>
+  40158c:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401593:	00 00 00 
+  401596:	e8 95 fa ff ff       	call   401030 <system@plt>
+  40159b:	eb 7d                	jmp    40161a <main.post_build>
+
+000000000040159d <main.do_cargo>:
+  40159d:	c6 05 59 28 00 00 04 	movb   $0x4,0x2859(%rip)        # 403dfd <build_type>
+  4015a4:	48 bf a8 33 40 00 00 	movabs $0x4033a8,%rdi
+  4015ab:	00 00 00 
+  4015ae:	31 c0                	xor    %eax,%eax
+  4015b0:	e8 8b fa ff ff       	call   401040 <printf@plt>
+  4015b5:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4015bc:	00 00 00 
+  4015bf:	be 00 04 00 00       	mov    $0x400,%esi
+  4015c4:	48 ba c7 33 40 00 00 	movabs $0x4033c7,%rdx
+  4015cb:	00 00 00 
+  4015ce:	4c 89 e9             	mov    %r13,%rcx
+  4015d1:	31 c0                	xor    %eax,%eax
+  4015d3:	e8 78 fa ff ff       	call   401050 <snprintf@plt>
+  4015d8:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4015df:	00 00 00 
+  4015e2:	e8 49 fa ff ff       	call   401030 <system@plt>
+  4015e7:	eb 31                	jmp    40161a <main.post_build>
+
+00000000004015e9 <main.unsupported>:
+  4015e9:	48 bf e6 33 40 00 00 	movabs $0x4033e6,%rdi
+  4015f0:	00 00 00 
+  4015f3:	31 c0                	xor    %eax,%eax
+  4015f5:	e8 46 fa ff ff       	call   401040 <printf@plt>
+  4015fa:	e9 16 02 00 00       	jmp    401815 <main.done>
+
+00000000004015ff <main.usage>:
+  4015ff:	48 bf 50 30 40 00 00 	movabs $0x403050,%rdi
+  401606:	00 00 00 
+  401609:	31 c0                	xor    %eax,%eax
+  40160b:	e8 30 fa ff ff       	call   401040 <printf@plt>
+  401610:	b8 01 00 00 00       	mov    $0x1,%eax
+  401615:	e9 fd 01 00 00       	jmp    401817 <main.exit>
+
+000000000040161a <main.post_build>:
+  40161a:	80 3d db 27 00 00 01 	cmpb   $0x1,0x27db(%rip)        # 403dfc <tcz_mode>
+  401621:	0f 85 ee 01 00 00    	jne    401815 <main.done>
+  401627:	48 bf 7f 37 40 00 00 	movabs $0x40377f,%rdi
+  40162e:	00 00 00 
+  401631:	31 c0                	xor    %eax,%eax
+  401633:	e8 08 fa ff ff       	call   401040 <printf@plt>
+  401638:	48 bf 26 35 40 00 00 	movabs $0x403526,%rdi
+  40163f:	00 00 00 
+  401642:	e8 e9 f9 ff ff       	call   401030 <system@plt>
+  401647:	80 3d af 27 00 00 01 	cmpb   $0x1,0x27af(%rip)        # 403dfd <build_type>
+  40164e:	74 24                	je     401674 <main.tcz_install_make>
+  401650:	80 3d a6 27 00 00 02 	cmpb   $0x2,0x27a6(%rip)        # 403dfd <build_type>
+  401657:	74 52                	je     4016ab <main.tcz_install_cmake>
+  401659:	80 3d 9d 27 00 00 03 	cmpb   $0x3,0x279d(%rip)        # 403dfd <build_type>
+  401660:	74 7d                	je     4016df <main.tcz_install_meson>
+  401662:	80 3d 94 27 00 00 04 	cmpb   $0x4,0x2794(%rip)        # 403dfd <build_type>
+  401669:	0f 84 a4 00 00 00    	je     401713 <main.tcz_install_cargo>
+  40166f:	e9 a1 01 00 00       	jmp    401815 <main.done>
+
+0000000000401674 <main.tcz_install_make>:
+  401674:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40167b:	00 00 00 
+  40167e:	be 00 04 00 00       	mov    $0x400,%esi
+  401683:	48 ba 61 35 40 00 00 	movabs $0x403561,%rdx
+  40168a:	00 00 00 
+  40168d:	4c 89 e9             	mov    %r13,%rcx
+  401690:	31 c0                	xor    %eax,%eax
+  401692:	e8 b9 f9 ff ff       	call   401050 <snprintf@plt>
+  401697:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40169e:	00 00 00 
+  4016a1:	e8 8a f9 ff ff       	call   401030 <system@plt>
+  4016a6:	e9 9c 00 00 00       	jmp    401747 <main.tcz_squash>
+
+00000000004016ab <main.tcz_install_cmake>:
+  4016ab:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4016b2:	00 00 00 
+  4016b5:	be 00 04 00 00       	mov    $0x400,%esi
+  4016ba:	48 ba 93 35 40 00 00 	movabs $0x403593,%rdx
+  4016c1:	00 00 00 
+  4016c4:	4c 89 e9             	mov    %r13,%rcx
+  4016c7:	31 c0                	xor    %eax,%eax
+  4016c9:	e8 82 f9 ff ff       	call   401050 <snprintf@plt>
+  4016ce:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4016d5:	00 00 00 
+  4016d8:	e8 53 f9 ff ff       	call   401030 <system@plt>
+  4016dd:	eb 68                	jmp    401747 <main.tcz_squash>
+
+00000000004016df <main.tcz_install_meson>:
+  4016df:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4016e6:	00 00 00 
+  4016e9:	be 00 04 00 00       	mov    $0x400,%esi
+  4016ee:	48 ba ce 35 40 00 00 	movabs $0x4035ce,%rdx
+  4016f5:	00 00 00 
+  4016f8:	4c 89 e9             	mov    %r13,%rcx
+  4016fb:	31 c0                	xor    %eax,%eax
+  4016fd:	e8 4e f9 ff ff       	call   401050 <snprintf@plt>
+  401702:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401709:	00 00 00 
+  40170c:	e8 1f f9 ff ff       	call   401030 <system@plt>
+  401711:	eb 34                	jmp    401747 <main.tcz_squash>
+
+0000000000401713 <main.tcz_install_cargo>:
+  401713:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40171a:	00 00 00 
+  40171d:	be 00 04 00 00       	mov    $0x400,%esi
+  401722:	48 ba 0a 36 40 00 00 	movabs $0x40360a,%rdx
+  401729:	00 00 00 
+  40172c:	4c 89 e9             	mov    %r13,%rcx
+  40172f:	31 c0                	xor    %eax,%eax
+  401731:	e8 1a f9 ff ff       	call   401050 <snprintf@plt>
+  401736:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40173d:	00 00 00 
+  401740:	e8 eb f8 ff ff       	call   401030 <system@plt>
+  401745:	eb 00                	jmp    401747 <main.tcz_squash>
+
+0000000000401747 <main.tcz_squash>:
+  401747:	48 bf a3 37 40 00 00 	movabs $0x4037a3,%rdi
+  40174e:	00 00 00 
+  401751:	31 c0                	xor    %eax,%eax
+  401753:	e8 e8 f8 ff ff       	call   401040 <printf@plt>
+  401758:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  40175f:	00 00 00 
+  401762:	be 00 04 00 00       	mov    $0x400,%esi
+  401767:	48 ba a4 36 40 00 00 	movabs $0x4036a4,%rdx
+  40176e:	00 00 00 
+  401771:	4c 89 f9             	mov    %r15,%rcx
+  401774:	31 c0                	xor    %eax,%eax
+  401776:	e8 d5 f8 ff ff       	call   401050 <snprintf@plt>
+  40177b:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401782:	00 00 00 
+  401785:	e8 a6 f8 ff ff       	call   401030 <system@plt>
+  40178a:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  401791:	00 00 00 
+  401794:	be 00 04 00 00       	mov    $0x400,%esi
+  401799:	48 ba f2 36 40 00 00 	movabs $0x4036f2,%rdx
+  4017a0:	00 00 00 
+  4017a3:	4c 89 f9             	mov    %r15,%rcx
+  4017a6:	4d 89 f8             	mov    %r15,%r8
+  4017a9:	31 c0                	xor    %eax,%eax
+  4017ab:	e8 a0 f8 ff ff       	call   401050 <snprintf@plt>
+  4017b0:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4017b7:	00 00 00 
+  4017ba:	e8 71 f8 ff ff       	call   401030 <system@plt>
+  4017bf:	48 bf bc 37 40 00 00 	movabs $0x4037bc,%rdi
+  4017c6:	00 00 00 
+  4017c9:	31 c0                	xor    %eax,%eax
+  4017cb:	e8 70 f8 ff ff       	call   401040 <printf@plt>
+  4017d0:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4017d7:	00 00 00 
+  4017da:	be 00 04 00 00       	mov    $0x400,%esi
+  4017df:	48 ba 3e 37 40 00 00 	movabs $0x40373e,%rdx
+  4017e6:	00 00 00 
+  4017e9:	4c 89 f9             	mov    %r15,%rcx
+  4017ec:	31 c0                	xor    %eax,%eax
+  4017ee:	e8 5d f8 ff ff       	call   401050 <snprintf@plt>
+  4017f3:	48 bf fc 37 40 00 00 	movabs $0x4037fc,%rdi
+  4017fa:	00 00 00 
+  4017fd:	e8 2e f8 ff ff       	call   401030 <system@plt>
+  401802:	48 bf d8 37 40 00 00 	movabs $0x4037d8,%rdi
+  401809:	00 00 00 
+  40180c:	31 c0                	xor    %eax,%eax
+  40180e:	e8 2d f8 ff ff       	call   401040 <printf@plt>
+  401813:	eb 00                	jmp    401815 <main.done>
+
+0000000000401815 <main.done>:
+  401815:	31 c0                	xor    %eax,%eax
+
+0000000000401817 <main.exit>:
+  401817:	48 83 c4 08          	add    $0x8,%rsp
+  40181b:	41 5f                	pop    %r15
+  40181d:	41 5e                	pop    %r14
+  40181f:	41 5d                	pop    %r13
+  401821:	41 5c                	pop    %r12
+  401823:	5b                   	pop    %rbx
+  401824:	c9                   	leave
+  401825:	c3                   	ret

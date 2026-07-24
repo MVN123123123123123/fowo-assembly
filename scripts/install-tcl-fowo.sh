@@ -169,6 +169,9 @@ if ! command -v grub-install >/dev/null 2>&1; then
     exit 1
 fi
 
+# Create locale directory to suppress harmless grub-install warning
+mkdir -p /usr/local/share/locale
+
 grub-install --target=x86_64-efi --efi-directory="$MNT_DIR/boot/efi" --boot-directory="$MNT_DIR/boot" --removable "$TARGET_DEV"
 
 PART_LABEL="$(basename "$ROOT_DEV")"

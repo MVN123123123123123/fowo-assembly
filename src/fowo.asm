@@ -8,14 +8,28 @@ extern access
 extern fopen
 extern fclose
 extern fputs
+extern fprintf
+extern fgets
 extern snprintf
 extern exit
+extern popen
+extern pclose
+extern opendir
+extern readdir
+extern closedir
+extern strlen
+extern strncmp
+extern time
 
 section .data
-    usage_msg db "Usage: fowo [-d] install [--tcz] <link>", 10, 0
+    usage_msg db "Usage: fowo [-d] install [--tcz] [--no-edit] <link>", 10, \
+                 "       fowo [-d] update", 10, \
+                 "       fowo [-d] update <package>", 10, 0
     install_cmd db "install", 0
+    update_cmd db "update", 0
     flag_d db "-d", 0
     flag_tcz db "--tcz", 0
+    flag_no_edit db "--no-edit", 0
     
     config_prod db "/etc/fowo", 0
     build_prod db "/tmp/fowo_build", 0
@@ -27,16 +41,32 @@ section .data
     editor_def db "nano", 0
     
     open_mode db "a+", 0
-    cfg_init_msg db "# ==========================================", 10, "# Fowo Package Manager Configuration", 10, "# ==========================================", 10, "# Instructions:", 10, "# 1. Add required system dependencies below.", 10, "# 2. Add custom build flags using FLAGS=...", 10, "# 3. Save and exit to continue.", 10, "# ==========================================", 10, "# Detected Dependencies:", 10, 0
+    read_mode db "r", 0
+    write_mode db "w", 0
+    cfg_init_msg db "# ==========================================", 10, \
+                    "# Fowo Package Manager Configuration", 10, \
+                    "# ==========================================", 10, \
+                    "# Instructions:", 10, \
+                    "# 1. Map dependencies using: ALIAS system_pkg = dep1, dep2", 10, \
+                    "# 2. Add custom build flags using FLAGS=...", 10, \
+                    "# 3. Save and exit to continue.", 10, \
+                    "# ==========================================", 10, \
+                    "# Detected Dependencies:", 10, 0
     err_cfg db "Failed to open config file %s. Are you root?", 10, 0
     
     cmd_fmt db "%s %s", 0
-    clone_fmt db "rm -rf %s && git clone --recursive %s %s", 0
+    clone_fmt db "D='%s'; if [ ! -d $D/.git ]; then rm -rf $D && git clone --recursive %s $D; else echo 'Pulling latest...'; cd $D && git pull; fi", 0
+    build_dir_fmt db "%s/%s", 0
     clone_msg db "Cloning %s to %s...", 10, 0
     
     makefile_fmt db "%s/Makefile", 0
     cmakelist_fmt db "%s/CMakeLists.txt", 0
     meson_fmt db "%s/meson.build", 0
+    
+    makefile_name db "Makefile", 0
+    cmakelist_name db "CMakeLists.txt", 0
+    meson_name db "meson.build", 0
+    cargo_name db "Cargo.toml", 0
     
     msg_makefile db "Found Makefile. Building...", 10, 0
     make_cmd db "cd %s && make", 0
@@ -54,9 +84,10 @@ section .data
     msg_unsupported db "Unsupported build system or no build file found.", 10, 0
     
     scan_msg db "Scanning dependencies...", 10, 0
-    cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed 's/^/# /' >> %s", 0
-    meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed 's/^/# /' >> %s", 0
-    cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | sed 's/^/# /' >> %s", 0
+    cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
+    meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " >> %s", 0
+    cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " >> %s", 0
+    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) system(", 34, "tce-load -wi ", 34, " pkg) }' %s", 0
     
     ; TCZ packaging strings
     tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage", 0
@@ -71,25 +102,97 @@ section .data
     msg_tcz_packaging db "Creating TCZ package...", 10, 0
     msg_tcz_moving db "Moving to TCE directory...", 10, 0
     msg_tcz_done db "TCZ package built and installed.", 10, 0
+    
+    ; -----------------------------------------------
+    ; Topology database strings
+    ; -----------------------------------------------
+    pkg_db_prod db "/var/lib/fowo/packages", 0
+    pkg_db_dbg db "/tmp/fowo_packages", 0
+    mkdir_fmt db "mkdir -p %s", 0
+    db_file_fmt db "%s/%s.db", 0
+    
+    ; DB write format: one line per field
+    db_write_url db "URL=%s", 10, 0
+    db_write_commit db "COMMIT=%s", 0
+    db_write_date db "DATE=%ld", 10, 0
+    db_write_btype db "BUILD_TYPE=%d", 10, 0
+    db_write_bconf db "BUILD_CONF=%s", 10, 0
+    
+    ; DB read prefixes
+    db_pfx_url db "URL=", 0
+    db_pfx_commit db "COMMIT=", 0
+    db_pfx_date db "DATE=", 0
+    db_pfx_btype db "BUILD_TYPE=", 0
+    db_pfx_bconf db "BUILD_CONF=", 0
+    
+    ; Git commands for updater
+    ls_remote_fmt db "git ls-remote %s HEAD 2>/dev/null | head -1 | cut -f1", 0
+    rev_parse_fmt db "cd %s && git rev-parse HEAD 2>/dev/null", 0
+    git_diff_fmt db "cd %s && git fetch origin 2>/dev/null && git diff --name-only %s origin/HEAD -- %s 2>/dev/null | head -1", 0
+    
+    ; Update messages
+    msg_update_all db "Scanning all installed packages for updates...", 10, 0
+    msg_checking db "Checking %s...", 10, 0
+    msg_up_to_date db "  %s is up to date.", 10, 0
+    msg_update_found db "  Update available for %s", 10, 0
+    msg_conf_changed db "  Build config changed. Running full install...", 10, 0
+    msg_conf_same db "  Build config unchanged. Rebuilding silently...", 10, 0
+    msg_update_done db "Update check complete.", 10, 0
+    msg_pkg_not_found db "Package '%s' not found in database.", 10, 0
+    msg_saving_topo db "Saving package topology for %s...", 10, 0
+    
+    ; Self-invocation format strings
+    self_invoke_noedit db "%s -d install --no-edit %s", 0
+    self_invoke_edit db "%s -d install %s", 0
+    self_invoke_noedit_prod db "%s install --no-edit %s", 0
+    self_invoke_edit_prod db "%s install %s", 0
+    
+    ; Misc
+    db_ext db ".db", 0
+    newline_char db 10, 0
+    popen_read db "r", 0
 
 section .bss
     cmd_buf resb 1024
+    cmd_buf2 resb 1024
     file_buf resb 512
+    actual_build_dir resb 1024
     tcz_mode   resb 1
     build_type resb 1
+    no_edit_mode resb 1
+    debug_mode_g resb 1
+    
+    ; Topology database buffers
+    db_path_buf resb 512
+    pkg_db_path resb 512
+    remote_commit resb 128
+    local_commit resb 128
+    stored_url resb 512
+    stored_commit resb 128
+    stored_bconf resb 256
+    stored_btype resb 4
+    line_buf resb 1024
+    pkg_name_buf resb 256
+    self_path_buf resb 512
+    
+    ; For update iteration
+    dir_entry_name resb 256
+    timestamp_buf resb 32
 
 section .text
     global _start
     global main
 
 _start:
-    sub rsp, 8
-    mov rdi, [rsp + 8]    ; argc
-    lea rsi, [rsp + 16]   ; argv
+    mov rdi, [rsp]        ; argc
+    lea rsi, [rsp + 8]    ; argv
     call main
     mov rdi, rax
     call exit
 
+; =========================================================================
+; main(argc, argv)
+; =========================================================================
 main:
     push rbp
     mov rbp, rsp
@@ -107,77 +210,178 @@ main:
     mov r14, 0 ; debug_mode
     mov byte [tcz_mode], 0
     mov byte [build_type], 0
+    mov byte [no_edit_mode], 0
+    mov byte [debug_mode_g], 0
+    
+    ; Save argv[0] for self-invocation
+    mov rax, [r13]
+    mov rdi, self_path_buf
+    mov rsi, rax
+.copy_self:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_self
     
     cmp r12, 2
     jl .usage
     
-    ; check argv[1] == "-d"
+    ; -------------------------------------------------------
+    ; Check argv[1] == "-d"
+    ; -------------------------------------------------------
     mov rdi, [r13+8]
     mov rsi, flag_d
     call strcmp
     cmp eax, 0
     jne .no_debug
     
-    mov r14, 1 ; debug_mode = 1
-    cmp r12, 4
+    mov r14, 1
+    mov byte [debug_mode_g], 1
+    cmp r12, 3
     jl .usage
     
-    ; check argv[2] == "install"
+    ; -------------------------------------------------------
+    ; Debug mode: check argv[2] for command
+    ; -------------------------------------------------------
+    ; Check "update"
+    mov rdi, [r13+16]
+    mov rsi, update_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_update_debug
+    
+    ; Check "install"
     mov rdi, [r13+16]
     mov rsi, install_cmd
     call strcmp
     cmp eax, 0
     jne .usage
     
-    ; check argv[3] == "--tcz"
-    mov rdi, [r13+24]
+    ; --- Debug install: parse flags from argv[3] onward ---
+    cmp r12, 4
+    jl .usage
+    
+    mov rbx, 3              ; arg index
+.dbg_parse_flags:
+    cmp rbx, r12
+    jge .usage              ; no link found
+    
+    mov rax, rbx
+    shl rax, 3
+    mov rdi, [r13 + rax]
+    
+    ; Check --tcz
     mov rsi, flag_tcz
     call strcmp
     cmp eax, 0
-    jne .no_tcz_debug
-    
+    jne .dbg_not_tcz
     mov byte [tcz_mode], 1
-    cmp r12, 5
-    jl .usage
-    mov r15, [r13+32] ; r15 = link (argv[4])
-    jmp .setup_paths
-
-.no_tcz_debug:
-    mov r15, [r13+24] ; r15 = link (argv[3])
-    jmp .setup_paths
-
-.no_debug:
-    cmp r12, 3
-    jl .usage
+    inc rbx
+    jmp .dbg_parse_flags
     
+.dbg_not_tcz:
+    mov rax, rbx
+    shl rax, 3
+    mov rdi, [r13 + rax]
+    mov rsi, flag_no_edit
+    call strcmp
+    cmp eax, 0
+    jne .dbg_not_noedit
+    mov byte [no_edit_mode], 1
+    inc rbx
+    jmp .dbg_parse_flags
+    
+.dbg_not_noedit:
+    ; This arg is the link
+    mov rax, rbx
+    shl rax, 3
+    mov r15, [r13 + rax]
+    jmp .setup_paths
+    
+    ; -------------------------------------------------------
+    ; Debug update: fowo -d update [<pkg>]
+    ; -------------------------------------------------------
+.parse_update_debug:
+    cmp r12, 4
+    jl .do_update_all
+    mov r15, [r13+24]       ; r15 = package name
+    jmp .do_update_one
+    
+    ; -------------------------------------------------------
+    ; No debug: check argv[1] for command
+    ; -------------------------------------------------------
+.no_debug:
+    ; Check "update"
+    mov rdi, [r13+8]
+    mov rsi, update_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_update_nodebug
+    
+    ; Check "install"
     mov rdi, [r13+8]
     mov rsi, install_cmd
     call strcmp
     cmp eax, 0
     jne .usage
     
-    ; check argv[2] == "--tcz"
-    mov rdi, [r13+16]
+    ; --- Non-debug install: parse flags from argv[2] onward ---
+    cmp r12, 3
+    jl .usage
+    
+    mov rbx, 2
+.nodebug_parse_flags:
+    cmp rbx, r12
+    jge .usage
+    
+    mov rax, rbx
+    shl rax, 3
+    mov rdi, [r13 + rax]
+    
     mov rsi, flag_tcz
     call strcmp
     cmp eax, 0
-    jne .no_tcz
-    
+    jne .nodebug_not_tcz
     mov byte [tcz_mode], 1
-    cmp r12, 4
-    jl .usage
-    mov r15, [r13+24] ; r15 = link (argv[3])
+    inc rbx
+    jmp .nodebug_parse_flags
+    
+.nodebug_not_tcz:
+    mov rax, rbx
+    shl rax, 3
+    mov rdi, [r13 + rax]
+    mov rsi, flag_no_edit
+    call strcmp
+    cmp eax, 0
+    jne .nodebug_not_noedit
+    mov byte [no_edit_mode], 1
+    inc rbx
+    jmp .nodebug_parse_flags
+    
+.nodebug_not_noedit:
+    mov rax, rbx
+    shl rax, 3
+    mov r15, [r13 + rax]
     jmp .setup_paths
+    
+    ; -------------------------------------------------------
+    ; Non-debug update: fowo update [<pkg>]
+    ; -------------------------------------------------------
+.parse_update_nodebug:
+    cmp r12, 3
+    jl .do_update_all
+    mov r15, [r13+16]
+    jmp .do_update_one
 
-.no_tcz:
-    mov r15, [r13+16] ; r15 = link (argv[2])
-
+; =========================================================================
+; Setup paths (install flow)
+; =========================================================================
 .setup_paths:
     cmp r14, 1
     je .is_debug
     
-    mov r12, config_prod ; r12 = config_path
-    mov r13, build_prod  ; r13 = build_dir
+    mov r12, config_prod
+    mov r13, build_prod
     jmp .open_config
 
 .is_debug:
@@ -185,6 +389,10 @@ main:
     mov r13, build_dbg
 
 .open_config:
+    ; Skip config creation in no-edit mode if file already exists
+    cmp byte [no_edit_mode], 1
+    je .clone
+    
     mov rdi, r12
     mov rsi, 0 ; F_OK
     call access
@@ -213,6 +421,58 @@ main:
     call printf
 
 .clone:
+    ; --- Extract basename from URL ---
+    mov rbx, r15
+    mov rcx, r15
+.find_slash:
+    cmp byte [rcx], 0
+    je .found_end
+    cmp byte [rcx], '/'
+    jne .not_slash
+    lea rbx, [rcx + 1]
+.not_slash:
+    inc rcx
+    jmp .find_slash
+.found_end:
+
+    mov rsi, rbx
+    mov rdi, file_buf
+.copy_name:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_name
+    
+    lea rax, [file_buf]
+    mov rcx, rdi
+    sub rcx, rax
+    dec rcx
+    cmp rcx, 4
+    jl .no_git
+    cmp dword [rdi - 5], 0x7469672e ; ".git"
+    jne .no_git
+    mov byte [rdi - 5], 0
+.no_git:
+
+    ; Also copy pkg name to pkg_name_buf for topology save
+    mov rsi, file_buf
+    mov rdi, pkg_name_buf
+.copy_pkg_name:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_pkg_name
+
+    mov rdi, actual_build_dir
+    mov rsi, 1024
+    mov rdx, build_dir_fmt
+    mov rcx, r13
+    mov r8, file_buf
+    xor eax, eax
+    call snprintf
+    
+    mov r13, actual_build_dir
+
     mov rdi, clone_msg
     mov rsi, r15
     mov rdx, r13
@@ -224,12 +484,15 @@ main:
     mov rdx, clone_fmt
     mov rcx, r13
     mov r8, r15
-    mov r9, r13
     xor eax, eax
     call snprintf
     
     mov rdi, cmd_buf
     call system
+
+    ; --- Skip scan_deps and editor if --no-edit ---
+    cmp byte [no_edit_mode], 1
+    je .check_meson
 
 .scan_deps:
     mov rdi, scan_msg
@@ -284,6 +547,19 @@ main:
     mov rdi, cmd_buf
     call system
 
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, install_deps_cmd
+    mov rcx, r12
+    xor eax, eax
+    call snprintf
+
+    mov rdi, cmd_buf
+    call system
+
+; =========================================================================
+; Build system detection
+; =========================================================================
 .check_meson:
     mov rdi, file_buf
     mov rsi, 512
@@ -423,22 +699,24 @@ main:
     mov eax, 1
     jmp .exit
 
+; =========================================================================
+; Post-build: save topology, then optionally package TCZ
+; =========================================================================
 .post_build:
+    ; --- Save topology database entry ---
+    call save_topology
+    
     cmp byte [tcz_mode], 1
     jne .done
     
     ; --- TCZ Packaging Pipeline ---
-    
-    ; Print staging message
     mov rdi, msg_tcz_staging
     xor eax, eax
     call printf
     
-    ; Clean and create staging directory
     mov rdi, tcz_stage_clean
     call system
     
-    ; Dispatch install based on build_type
     cmp byte [build_type], 1
     je .tcz_install_make
     cmp byte [build_type], 2
@@ -494,12 +772,10 @@ main:
     jmp .tcz_squash
 
 .tcz_squash:
-    ; Print packaging message
     mov rdi, msg_tcz_packaging
     xor eax, eax
     call printf
     
-    ; Create .tcz with mksquashfs
     mov rdi, cmd_buf
     mov rsi, 1024
     mov rdx, tcz_mksquashfs
@@ -509,7 +785,6 @@ main:
     mov rdi, cmd_buf
     call system
     
-    ; Generate md5sum
     mov rdi, cmd_buf
     mov rsi, 1024
     mov rdx, tcz_md5
@@ -520,12 +795,10 @@ main:
     mov rdi, cmd_buf
     call system
     
-    ; Print moving message
     mov rdi, msg_tcz_moving
     xor eax, eax
     call printf
     
-    ; Move to TCE directory
     mov rdi, cmd_buf
     mov rsi, 1024
     mov rdx, tcz_move
@@ -535,12 +808,161 @@ main:
     mov rdi, cmd_buf
     call system
     
-    ; Print done message
     mov rdi, msg_tcz_done
     xor eax, eax
     call printf
     jmp .done
 
+; =========================================================================
+; UPDATE: full system scan
+; =========================================================================
+.do_update_all:
+    cmp r14, 1
+    je .ua_debug
+    mov r12, config_prod
+    mov r13, build_prod
+    lea rbx, [pkg_db_prod]
+    jmp .ua_start
+.ua_debug:
+    mov r12, config_dbg
+    mov r13, build_dbg
+    lea rbx, [pkg_db_dbg]
+
+.ua_start:
+    mov rdi, msg_update_all
+    xor eax, eax
+    call printf
+    
+    mov rdi, rbx
+    call opendir
+    test rax, rax
+    jz .ua_done
+    mov r15, rax
+
+.ua_loop:
+    mov rdi, r15
+    call readdir
+    test rax, rax
+    jz .ua_close
+    
+    lea rsi, [rax + 19]
+    mov rdi, dir_entry_name
+.ua_copy_name:
+    lodsb
+    stosb
+    test al, al
+    jnz .ua_copy_name
+    
+    mov rdi, dir_entry_name
+    call strlen
+    cmp rax, 3
+    jl .ua_loop
+    
+    lea rdi, [dir_entry_name + rax - 3]
+    mov rsi, db_ext
+    call strcmp
+    cmp eax, 0
+    jne .ua_loop
+    
+    mov rdi, dir_entry_name
+    call strlen
+    sub rax, 3
+    mov byte [dir_entry_name + rax], 0
+    
+    mov rsi, dir_entry_name
+    mov rdi, pkg_name_buf
+.ua_copy_pkg:
+    lodsb
+    stosb
+    test al, al
+    jnz .ua_copy_pkg
+    
+    push rax                ; alignment padding
+    push r15
+    push rbx
+    push r14
+    push r13
+    push r12
+    
+    call update_single_pkg
+    
+    pop r12
+    pop r13
+    pop r14
+    pop rbx
+    pop r15
+    pop rax                 ; alignment padding
+    
+    jmp .ua_loop
+
+.ua_close:
+    mov rdi, r15
+    call closedir
+    
+.ua_done:
+    mov rdi, msg_update_done
+    xor eax, eax
+    call printf
+    xor eax, eax
+    jmp .exit
+
+; =========================================================================
+; UPDATE: specific package
+; =========================================================================
+.do_update_one:
+    cmp r14, 1
+    je .uo_debug
+    mov r12, config_prod
+    mov r13, build_prod
+    lea rbx, [pkg_db_prod]
+    jmp .uo_start
+.uo_debug:
+    mov r12, config_dbg
+    mov r13, build_dbg
+    lea rbx, [pkg_db_dbg]
+
+.uo_start:
+    mov rsi, r15
+    mov rdi, pkg_name_buf
+.uo_copy:
+    lodsb
+    stosb
+    test al, al
+    jnz .uo_copy
+    
+    mov rdi, db_path_buf
+    mov rsi, 512
+    mov rdx, db_file_fmt
+    mov rcx, rbx
+    mov r8, pkg_name_buf
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, db_path_buf
+    mov rsi, 0
+    call access
+    cmp eax, 0
+    jne .uo_not_found
+    
+    call update_single_pkg
+    
+    mov rdi, msg_update_done
+    xor eax, eax
+    call printf
+    xor eax, eax
+    jmp .exit
+
+.uo_not_found:
+    mov rdi, msg_pkg_not_found
+    mov rsi, pkg_name_buf
+    xor eax, eax
+    call printf
+    mov eax, 1
+    jmp .exit
+
+; =========================================================================
+; Common exit points for main
+; =========================================================================
 .done:
     xor eax, eax
 .exit:
@@ -552,3 +974,487 @@ main:
     pop rbx
     leave
     ret
+
+; =========================================================================
+; save_topology - Save package metadata to db file
+;   Uses globals: r13 (build_dir), r15 (URL), pkg_name_buf, build_type,
+;                 debug_mode_g
+; =========================================================================
+save_topology:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 8
+    
+    ; Preserve r13 and r15 from caller via stack frame (they're already pushed)
+    mov r14, r13            ; r14 = build_dir
+    mov r12, r15            ; r12 = URL
+    
+    ; Print saving message
+    mov rdi, msg_saving_topo
+    mov rsi, pkg_name_buf
+    xor eax, eax
+    call printf
+    
+    ; Determine db directory
+    cmp byte [debug_mode_g], 1
+    je .st_debug
+    lea rbx, [pkg_db_prod]
+    jmp .st_mkdir
+.st_debug:
+    lea rbx, [pkg_db_dbg]
+
+.st_mkdir:
+    ; mkdir -p <db_dir>
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, mkdir_fmt
+    mov rcx, rbx
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf2
+    call system
+    
+    ; Format db file path: <db_dir>/<pkg_name>.db
+    mov rdi, db_path_buf
+    mov rsi, 512
+    mov rdx, db_file_fmt
+    mov rcx, rbx
+    mov r8, pkg_name_buf
+    xor eax, eax
+    call snprintf
+    
+    ; Get current commit via popen
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, rev_parse_fmt
+    mov rcx, r14
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf2
+    mov rsi, popen_read
+    call popen
+    test rax, rax
+    jz .st_no_commit
+    mov rbx, rax
+    
+    mov rdi, local_commit
+    mov rsi, 128
+    mov rdx, rbx
+    call fgets
+    
+    mov rdi, rbx
+    call pclose
+    
+    ; Strip trailing newline from local_commit
+    mov rdi, local_commit
+    call strlen
+    test rax, rax
+    jz .st_no_commit
+    lea rcx, [local_commit + rax - 1]
+    cmp byte [rcx], 10
+    jne .st_write_db
+    mov byte [rcx], 0
+    jmp .st_write_db
+    
+.st_no_commit:
+    mov byte [local_commit], '?'
+    mov byte [local_commit + 1], 0
+
+.st_write_db:
+    ; Open db file for writing
+    mov rdi, db_path_buf
+    mov rsi, write_mode
+    call fopen
+    test rax, rax
+    jz .st_done
+    mov rbx, rax
+    
+    ; Write URL
+    mov rdi, rbx
+    mov rsi, db_write_url
+    mov rdx, r12
+    xor eax, eax
+    call fprintf
+    
+    ; Write COMMIT (no newline in format, we add it)
+    mov rdi, rbx
+    mov rsi, db_write_commit
+    mov rdx, local_commit
+    xor eax, eax
+    call fprintf
+    ; Write newline
+    mov rdi, newline_char
+    mov rsi, rbx
+    call fputs
+    
+    ; Write DATE (unix timestamp)
+    xor edi, edi
+    call time
+    mov r15, rax            ; r15 = timestamp
+    mov rdi, rbx
+    mov rsi, db_write_date
+    mov rdx, r15
+    xor eax, eax
+    call fprintf
+    
+    ; Write BUILD_TYPE
+    movzx edx, byte [build_type]
+    mov rdi, rbx
+    mov rsi, db_write_btype
+    xor eax, eax
+    call fprintf
+    
+    ; Write BUILD_CONF (determine from build_type)
+    mov rdi, rbx
+    mov rsi, db_write_bconf
+    
+    cmp byte [build_type], 1
+    je .st_conf_make
+    cmp byte [build_type], 2
+    je .st_conf_cmake
+    cmp byte [build_type], 3
+    je .st_conf_meson
+    cmp byte [build_type], 4
+    je .st_conf_cargo
+    mov rdx, makefile_name  ; fallback
+    jmp .st_conf_write
+.st_conf_make:
+    mov rdx, makefile_name
+    jmp .st_conf_write
+.st_conf_cmake:
+    mov rdx, cmakelist_name
+    jmp .st_conf_write
+.st_conf_meson:
+    mov rdx, meson_name
+    jmp .st_conf_write
+.st_conf_cargo:
+    mov rdx, cargo_name
+.st_conf_write:
+    xor eax, eax
+    call fprintf
+    
+    mov rdi, rbx
+    call fclose
+    
+.st_done:
+    add rsp, 8
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    leave
+    ret
+
+; =========================================================================
+; update_single_pkg - Check and update a single package
+;   Reads: pkg_name_buf, rbx (db dir ptr), debug_mode_g
+;   Uses:  stored_url, stored_commit, stored_bconf, remote_commit
+; =========================================================================
+update_single_pkg:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 8
+    
+    ; r14 = db dir (from rbx)
+    mov r14, rbx
+    
+    ; Print "Checking <pkg>..."
+    mov rdi, msg_checking
+    mov rsi, pkg_name_buf
+    xor eax, eax
+    call printf
+    
+    ; Construct db file path
+    mov rdi, db_path_buf
+    mov rsi, 512
+    mov rdx, db_file_fmt
+    mov rcx, r14
+    mov r8, pkg_name_buf
+    xor eax, eax
+    call snprintf
+    
+    ; Read the db file
+    mov rdi, db_path_buf
+    mov rsi, read_mode
+    call fopen
+    test rax, rax
+    jz .usp_done
+    mov r12, rax            ; r12 = FILE*
+    
+    ; Clear stored buffers
+    mov byte [stored_url], 0
+    mov byte [stored_commit], 0
+    mov byte [stored_bconf], 0
+    mov byte [stored_btype], 0
+
+.usp_read_loop:
+    mov rdi, line_buf
+    mov rsi, 1024
+    mov rdx, r12
+    call fgets
+    test rax, rax
+    jz .usp_read_done
+    
+    ; Strip trailing newline
+    mov rdi, line_buf
+    call strlen
+    test rax, rax
+    jz .usp_read_loop
+    lea rcx, [line_buf + rax - 1]
+    cmp byte [rcx], 10
+    jne .usp_check_url
+    mov byte [rcx], 0
+    
+.usp_check_url:
+    mov rdi, line_buf
+    mov rsi, db_pfx_url
+    mov rdx, 4              ; strlen("URL=")
+    call strncmp
+    cmp eax, 0
+    jne .usp_check_commit
+    lea rsi, [line_buf + 4]
+    mov rdi, stored_url
+.usp_copy_url:
+    lodsb
+    stosb
+    test al, al
+    jnz .usp_copy_url
+    jmp .usp_read_loop
+
+.usp_check_commit:
+    mov rdi, line_buf
+    mov rsi, db_pfx_commit
+    mov rdx, 7              ; strlen("COMMIT=")
+    call strncmp
+    cmp eax, 0
+    jne .usp_check_bconf
+    lea rsi, [line_buf + 7]
+    mov rdi, stored_commit
+.usp_copy_commit:
+    lodsb
+    stosb
+    test al, al
+    jnz .usp_copy_commit
+    jmp .usp_read_loop
+
+.usp_check_bconf:
+    mov rdi, line_buf
+    mov rsi, db_pfx_bconf
+    mov rdx, 11             ; strlen("BUILD_CONF=")
+    call strncmp
+    cmp eax, 0
+    jne .usp_check_btype
+    lea rsi, [line_buf + 11]
+    mov rdi, stored_bconf
+.usp_copy_bconf:
+    lodsb
+    stosb
+    test al, al
+    jnz .usp_copy_bconf
+    jmp .usp_read_loop
+
+.usp_check_btype:
+    mov rdi, line_buf
+    mov rsi, db_pfx_btype
+    mov rdx, 11             ; strlen("BUILD_TYPE=")
+    call strncmp
+    cmp eax, 0
+    jne .usp_read_loop
+    mov al, [line_buf + 11]
+    mov [stored_btype], al
+    jmp .usp_read_loop
+
+.usp_read_done:
+    mov rdi, r12
+    call fclose
+    
+    ; Check that we have a URL
+    cmp byte [stored_url], 0
+    je .usp_done
+    
+    ; --- Query remote HEAD via git ls-remote (no API hit) ---
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, ls_remote_fmt
+    mov rcx, stored_url
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf2
+    mov rsi, popen_read
+    call popen
+    test rax, rax
+    jz .usp_done
+    mov r12, rax
+    
+    mov rdi, remote_commit
+    mov rsi, 128
+    mov rdx, r12
+    call fgets
+    
+    mov rdi, r12
+    call pclose
+    
+    ; Strip trailing newline from remote_commit
+    mov rdi, remote_commit
+    call strlen
+    test rax, rax
+    jz .usp_done
+    lea rcx, [remote_commit + rax - 1]
+    cmp byte [rcx], 10
+    jne .usp_compare
+    mov byte [rcx], 0
+
+.usp_compare:
+    ; Compare stored_commit vs remote_commit
+    mov rdi, stored_commit
+    mov rsi, remote_commit
+    call strcmp
+    cmp eax, 0
+    je .usp_up_to_date
+    
+    ; --- Update available! ---
+    mov rdi, msg_update_found
+    mov rsi, pkg_name_buf
+    xor eax, eax
+    call printf
+    
+    ; Construct build dir path for this package
+    cmp byte [debug_mode_g], 1
+    je .usp_build_dbg
+    mov rcx, build_prod
+    jmp .usp_build_set
+.usp_build_dbg:
+    mov rcx, build_dbg
+.usp_build_set:
+    mov rdi, actual_build_dir
+    mov rsi, 1024
+    mov rdx, build_dir_fmt
+    mov r8, pkg_name_buf
+    xor eax, eax
+    call snprintf
+    
+    ; Check if the build config file changed using git diff
+    cmp byte [stored_bconf], 0
+    je .usp_full_install
+
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, git_diff_fmt
+    mov rcx, actual_build_dir
+    mov r8, stored_commit
+    mov r9, stored_bconf
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf2
+    mov rsi, popen_read
+    call popen
+    test rax, rax
+    jz .usp_full_install
+    mov r12, rax
+    
+    mov rdi, line_buf
+    mov rsi, 1024
+    mov rdx, r12
+    call fgets
+    mov r13, rax
+    
+    mov rdi, r12
+    call pclose
+    
+    ; If fgets returned NULL or empty, config did NOT change
+    test r13, r13
+    jz .usp_silent_rebuild
+    cmp byte [line_buf], 0
+    je .usp_silent_rebuild
+    cmp byte [line_buf], 10
+    je .usp_silent_rebuild
+    
+    ; Build config DID change
+    jmp .usp_full_install
+
+.usp_silent_rebuild:
+    mov rdi, msg_conf_same
+    xor eax, eax
+    call printf
+    
+    cmp byte [debug_mode_g], 1
+    je .usp_silent_dbg
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, self_invoke_noedit_prod
+    mov rcx, self_path_buf
+    mov r8, stored_url
+    xor eax, eax
+    call snprintf
+    jmp .usp_run_self
+.usp_silent_dbg:
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, self_invoke_noedit
+    mov rcx, self_path_buf
+    mov r8, stored_url
+    xor eax, eax
+    call snprintf
+    jmp .usp_run_self
+
+.usp_full_install:
+    mov rdi, msg_conf_changed
+    xor eax, eax
+    call printf
+    
+    cmp byte [debug_mode_g], 1
+    je .usp_full_dbg
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, self_invoke_edit_prod
+    mov rcx, self_path_buf
+    mov r8, stored_url
+    xor eax, eax
+    call snprintf
+    jmp .usp_run_self
+.usp_full_dbg:
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, self_invoke_edit
+    mov rcx, self_path_buf
+    mov r8, stored_url
+    xor eax, eax
+    call snprintf
+
+.usp_run_self:
+    mov rdi, cmd_buf2
+    call system
+    jmp .usp_done
+
+.usp_up_to_date:
+    mov rdi, msg_up_to_date
+    mov rsi, pkg_name_buf
+    xor eax, eax
+    call printf
+
+.usp_done:
+    add rsp, 8
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    leave
+    ret
+
+
+
