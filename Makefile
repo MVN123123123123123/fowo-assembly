@@ -13,3 +13,6 @@ build/fowo.o: src/fowo.asm
 
 clean:
 	rm -rf build/*
+
+tcz: all
+	./scripts/build-tcz.sh

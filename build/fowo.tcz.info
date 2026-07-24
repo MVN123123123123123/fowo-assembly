@@ -1,0 +1,12 @@
+Title:          fowo
+Description:    Source-based package manager with TCZ support
+Version:        1.0
+Author:         fowo
+Original-site:  
+Copying-policy: MIT
+Size:           4.0K
+Extension_by:   fowo
+Comments:       Builds packages from git repositories.
+                Supports Makefile, CMake, Meson, and Cargo build systems.
+                Use --tcz flag to build Tiny Core Linux .tcz packages.
+Change-log:     1.0 - Initial release with TCZ packaging support

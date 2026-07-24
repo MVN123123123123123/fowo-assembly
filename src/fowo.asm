@@ -1,3 +1,5 @@
+default rel
+
 extern printf
 extern strcmp
 extern getenv
@@ -9,9 +11,10 @@ extern fputs
 extern snprintf
 
 section .data
-    usage_msg db "Usage: fowo [-d] install <link>", 10, 0
+    usage_msg db "Usage: fowo [-d] install [--tcz] <link>", 10, 0
     install_cmd db "install", 0
     flag_d db "-d", 0
+    flag_tcz db "--tcz", 0
     
     config_prod db "/etc/fowo", 0
     build_prod db "/tmp/fowo_build", 0
@@ -53,10 +56,26 @@ section .data
     cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed 's/^/# /' >> %s", 0
     meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed 's/^/# /' >> %s", 0
     cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | sed 's/^/# /' >> %s", 0
+    
+    ; TCZ packaging strings
+    tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage", 0
+    make_install_cmd db "cd %s && make DESTDIR=/tmp/fowo_tcz_stage install", 0
+    cmake_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage cmake --install build", 0
+    meson_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage meson install -C build", 0
+    cargo_install_cmd db "mkdir -p /tmp/fowo_tcz_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_tcz_stage/usr/local/bin/; done", 0
+    tcz_mksquashfs db "mksquashfs /tmp/fowo_tcz_stage /tmp/$(basename %s .git).tcz -b 4096 -noappend", 0
+    tcz_md5 db "cd /tmp && md5sum $(basename %s .git).tcz > $(basename %s .git).tcz.md5.txt", 0
+    tcz_move db "mv /tmp/$(basename %s .git).tcz* /etc/sysconfig/tcedir/optional/", 0
+    msg_tcz_staging db "Installing to staging directory...", 10, 0
+    msg_tcz_packaging db "Creating TCZ package...", 10, 0
+    msg_tcz_moving db "Moving to TCE directory...", 10, 0
+    msg_tcz_done db "TCZ package built and installed.", 10, 0
 
 section .bss
     cmd_buf resb 1024
     file_buf resb 512
+    tcz_mode   resb 1
+    build_type resb 1
 
 section .text
     global main
@@ -76,6 +95,8 @@ main:
     mov r12, rdi
     mov r13, rsi
     mov r14, 0 ; debug_mode
+    mov byte [tcz_mode], 0
+    mov byte [build_type], 0
     
     cmp r12, 2
     jl .usage
@@ -98,7 +119,21 @@ main:
     cmp eax, 0
     jne .usage
     
-    mov r15, [r13+24] ; r15 = link
+    ; check argv[3] == "--tcz"
+    mov rdi, [r13+24]
+    mov rsi, flag_tcz
+    call strcmp
+    cmp eax, 0
+    jne .no_tcz_debug
+    
+    mov byte [tcz_mode], 1
+    cmp r12, 5
+    jl .usage
+    mov r15, [r13+32] ; r15 = link (argv[4])
+    jmp .setup_paths
+
+.no_tcz_debug:
+    mov r15, [r13+24] ; r15 = link (argv[3])
     jmp .setup_paths
 
 .no_debug:
@@ -111,7 +146,21 @@ main:
     cmp eax, 0
     jne .usage
     
-    mov r15, [r13+16] ; r15 = link
+    ; check argv[2] == "--tcz"
+    mov rdi, [r13+16]
+    mov rsi, flag_tcz
+    call strcmp
+    cmp eax, 0
+    jne .no_tcz
+    
+    mov byte [tcz_mode], 1
+    cmp r12, 4
+    jl .usage
+    mov r15, [r13+24] ; r15 = link (argv[3])
+    jmp .setup_paths
+
+.no_tcz:
+    mov r15, [r13+16] ; r15 = link (argv[2])
 
 .setup_paths:
     cmp r14, 1
@@ -284,6 +333,7 @@ main:
     jmp .unsupported
 
 .do_make:
+    mov byte [build_type], 1
     mov rdi, msg_makefile
     xor eax, eax
     call printf
@@ -297,9 +347,10 @@ main:
     
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .post_build
 
 .do_cmake:
+    mov byte [build_type], 2
     mov rdi, msg_cmake
     xor eax, eax
     call printf
@@ -313,9 +364,10 @@ main:
     
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .post_build
 
 .do_meson:
+    mov byte [build_type], 3
     mov rdi, msg_meson
     xor eax, eax
     call printf
@@ -329,9 +381,10 @@ main:
     
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .post_build
 
 .do_cargo:
+    mov byte [build_type], 4
     mov rdi, msg_cargo
     xor eax, eax
     call printf
@@ -345,7 +398,7 @@ main:
     
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .post_build
 
 .unsupported:
     mov rdi, msg_unsupported
@@ -359,6 +412,124 @@ main:
     call printf
     mov eax, 1
     jmp .exit
+
+.post_build:
+    cmp byte [tcz_mode], 1
+    jne .done
+    
+    ; --- TCZ Packaging Pipeline ---
+    
+    ; Print staging message
+    mov rdi, msg_tcz_staging
+    xor eax, eax
+    call printf
+    
+    ; Clean and create staging directory
+    mov rdi, tcz_stage_clean
+    call system
+    
+    ; Dispatch install based on build_type
+    cmp byte [build_type], 1
+    je .tcz_install_make
+    cmp byte [build_type], 2
+    je .tcz_install_cmake
+    cmp byte [build_type], 3
+    je .tcz_install_meson
+    cmp byte [build_type], 4
+    je .tcz_install_cargo
+    jmp .done
+
+.tcz_install_make:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, make_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .tcz_squash
+
+.tcz_install_cmake:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, cmake_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .tcz_squash
+
+.tcz_install_meson:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, meson_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .tcz_squash
+
+.tcz_install_cargo:
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, cargo_install_cmd
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .tcz_squash
+
+.tcz_squash:
+    ; Print packaging message
+    mov rdi, msg_tcz_packaging
+    xor eax, eax
+    call printf
+    
+    ; Create .tcz with mksquashfs
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, tcz_mksquashfs
+    mov rcx, r15
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    
+    ; Generate md5sum
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, tcz_md5
+    mov rcx, r15
+    mov r8, r15
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    
+    ; Print moving message
+    mov rdi, msg_tcz_moving
+    xor eax, eax
+    call printf
+    
+    ; Move to TCE directory
+    mov rdi, cmd_buf
+    mov rsi, 1024
+    mov rdx, tcz_move
+    mov rcx, r15
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+    
+    ; Print done message
+    mov rdi, msg_tcz_done
+    xor eax, eax
+    call printf
+    jmp .done
 
 .done:
     xor eax, eax
