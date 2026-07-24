@@ -34,12 +34,15 @@ mkdir -p "$STAGE_DIR/usr/local/tce.installed"
 cp "$BUILD_DIR/fowo" "$STAGE_DIR/usr/local/bin/fowo"
 strip "$STAGE_DIR/usr/local/bin/fowo" 2>/dev/null || true
 
+cp "$SCRIPT_DIR/install-tcl-fowo.sh" "$STAGE_DIR/usr/local/bin/install-tcl-fowo.sh"
+chmod +x "$STAGE_DIR/usr/local/bin/install-tcl-fowo.sh"
+
 # GUI Installer .desktop shortcut
 mkdir -p "$STAGE_DIR/usr/local/share/applications"
 cat > "$STAGE_DIR/usr/local/share/applications/fowo-installer.desktop" << 'EOF'
 [Desktop Entry]
 Name=Install Fowo OS
-Exec=aterm -e sudo /cde/install-tcl-fowo.sh
+Exec=aterm -e sudo /usr/local/bin/install-tcl-fowo.sh
 Icon=system-run
 Terminal=false
 Type=Application
@@ -59,7 +62,7 @@ if id -u tc >/dev/null 2>&1; then
     cat > /home/tc/.X.d/fowo-autorun << 'EOM'
 #!/bin/sh
 if grep -q "autofowo" /proc/cmdline; then
-    aterm -e sudo /cde/install-tcl-fowo.sh
+    aterm -e sudo /usr/local/bin/install-tcl-fowo.sh
 fi
 EOM
     chmod +x /home/tc/.X.d/fowo-autorun
@@ -79,6 +82,11 @@ echo "[4/5] Generating metadata..."
 cat > "$BUILD_DIR/$PKG_NAME.tcz.dep" <<EOF
 git.tcz
 squashfs-tools.tcz
+e2fsprogs.tcz
+parted.tcz
+grub2-multi.tcz
+dosfstools.tcz
+efibootmgr.tcz
 EOF
 
 # .md5.txt
