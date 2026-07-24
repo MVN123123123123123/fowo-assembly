@@ -1,0 +1,24 @@
+Title:          expat2.tcz
+Description:    expat xml parser
+Version:        2.7.3
+Author:         James Clark
+Original-site:  https://github.com/libexpat/libexpat/releases/
+Copying-policy: OpenSource
+Size: 		80KB
+Extension_by:   juanito
+Tags:	        xml parser
+Comments:       stream oriented c library for parsing xml
+                ----------
+Change-log:     2012/11/09 first version
+                2013/11/02 updated 2.0.1 -> 2.1.0
+                2015/10/31 recompiled on tc-7.x
+                2016/10/17 updated 2.1.0 -> 2.2.0
+                2017/12/06 updated 2.2.0 -> 2.2.5
+                2018/10/30 updated 2.2.5 -> 2.2.6
+                2019/11/25 updated 2.2.6 -> 2.2.9
+                2020/12/14 updated 2.2.9 -> 2.2.10
+                2021/10/31 updated 2.2.10 -> 2.4.1
+                2022/02/21 updated 2.4.1 -> 2.4.6
+                2022/12/21 updated 2.4.6 -> 2.5
+                2024/12/14 updated 2.5 -> 2.6.4
+Current:	2025/12/05 updated 2.6.4 -> 2.7.3

@@ -1,7 +1,7 @@
 CC = gcc
 NASM = nasm
 NASM_FLAGS = -f elf64 -g
-LDFLAGS = -no-pie
+LDFLAGS = -nostartfiles -no-pie
 
 all: build/fowo
 
@@ -16,3 +16,7 @@ clean:
 
 tcz: all
 	./scripts/build-tcz.sh
+
+iso: tcz
+	./scripts/build-iso.sh
+

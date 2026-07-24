@@ -9,6 +9,7 @@ extern fopen
 extern fclose
 extern fputs
 extern snprintf
+extern exit
 
 section .data
     usage_msg db "Usage: fowo [-d] install [--tcz] <link>", 10, 0
@@ -78,7 +79,16 @@ section .bss
     build_type resb 1
 
 section .text
+    global _start
     global main
+
+_start:
+    sub rsp, 8
+    mov rdi, [rsp + 8]    ; argc
+    lea rsi, [rsp + 16]   ; argv
+    call main
+    mov rdi, rax
+    call exit
 
 main:
     push rbp

@@ -1,0 +1,24 @@
+Title:          git.tcz
+Description:    version control system
+Version:        2.52.0
+Author:         see list of sites below
+Original-site:  see list of sites below
+Copying-policy: see list of sites below
+Size: 5.4MB
+Extension_by:   juanito
+Tags:           distributed version control
+Comments:       distributed version control system
+                ----------
+                optionally requires perl5, python3.14
+                ----------
+                This extension contains:
+                git-2.52.0 - GPLv2 - https://www.kernel.org/pub/software/scm/git/git-2.52.0.tar.xz
+                ----------
+Change-log:     2012/12/28 first version
+                2013/12/16 updated 1.8.0.2 -> 1.8.5.1
+                2016/08/10 updated 1.8.5.1 -> 2.9.2
+                2018/07/28 updated 2.9.2 -> 2.18.0
+                2019/12/11 updated 2.18.0 -> 2.24.0
+                2021/11/24 updated 2.24.0 -> 2.34.0
+                2025/08/29 updated 2.34.0 -> 2.50.1
+Current:        2026/01/09 updated 2.50.1 -> 2.52.0

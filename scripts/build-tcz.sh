@@ -29,9 +29,19 @@ fi
 echo "[2/5] Creating staging directory..."
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR/usr/local/bin"
+mkdir -p "$STAGE_DIR/usr/local/tce.installed"
 
 cp "$BUILD_DIR/fowo" "$STAGE_DIR/usr/local/bin/fowo"
 strip "$STAGE_DIR/usr/local/bin/fowo" 2>/dev/null || true
+
+# Post-installation script executed by tce-load
+cat > "$STAGE_DIR/usr/local/tce.installed/$PKG_NAME" << 'EOF'
+#!/bin/sh
+if [ ! -e /lib64 ]; then
+    ln -s /lib /lib64
+fi
+EOF
+chmod 755 "$STAGE_DIR/usr/local/tce.installed/$PKG_NAME"
 
 # Step 4: Create .tcz SquashFS archive
 echo "[3/5] Creating $PKG_NAME.tcz..."

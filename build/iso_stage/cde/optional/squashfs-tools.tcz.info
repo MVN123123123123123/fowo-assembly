@@ -1,0 +1,23 @@
+Title:          squashfs-tools.tcz
+Description:    compressed read-only file filesystem tools
+Version:        4.7.4
+Author:         Phillip Lougher
+Original-site:  https://github.com/plougher/squashfs-tools
+Copying-policy: GPL
+Size:		208KB
+Extension_by:   juanito
+Tags:	        squash fs filesystem zlib lzma lzo zstd compression
+Comments:       tools for squashfs archives
+		lzma, lzo, zlib and zstd support included
+                ----------
+		To make a squashfs image of a directory:
+		# mksquashfs directory/ filename.extensionname
+		This extension is PPI compatible
+		Defaults to zlib 4096 block size used by TC extensions
+                ----------
+Change-log:     2012/11/09 first version
+                2014/01/19 recompiled with correct block size
+                2014/09/26 updated 4.2 -> 4.3
+                2017/11/16 updated 4.3 -> 4.3-git
+                2023/06/26 updated 4.3-git -> 4.6.1
+Current:	2025/12/18 updated 4.6.1 -> 4.7.4

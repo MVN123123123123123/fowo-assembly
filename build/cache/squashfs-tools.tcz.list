@@ -1,0 +1,4 @@
+/usr/local/bin/mksquashfs
+/usr/local/bin/sqfscat
+/usr/local/bin/sqfstar
+/usr/local/bin/unsquashfs
