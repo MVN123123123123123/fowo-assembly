@@ -1,1 +1,11 @@
 AGENTS.md
+*.iso
+*.tcz
+*.tcz.dep
+*.tcz.info
+*.tcz.list
+*.tcz.md5.txt
+*.img
+*.EFI
+*.efi
+*.cfg

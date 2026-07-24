@@ -143,13 +143,15 @@ done
 cp "$SCRIPT_DIR/install-tcl-fowo.sh" "$CDE_DIR/install-tcl-fowo.sh"
 chmod +x "$CDE_DIR/install-tcl-fowo.sh"
 
-# 5. Step 5: Configure bootloader
-echo "[5/6] Configuring bootloader..."
+# 5. Step 5: Configure bootloader (ISOLINUX for Legacy BIOS + GRUB2 for UEFI)
+echo "[5/6] Configuring bootloaders (Legacy BIOS + UEFI)..."
 ISOLINUX_DIR="$STAGE_DIR/boot/isolinux"
 if [ ! -d "$ISOLINUX_DIR" ]; then
     ISOLINUX_DIR="$STAGE_DIR/boot/syslinux"
 fi
 mkdir -p "$ISOLINUX_DIR"
+mkdir -p "$STAGE_DIR/boot/grub"
+mkdir -p "$STAGE_DIR/EFI/BOOT"
 
 cat > "$ISOLINUX_DIR/boot.msg" << 'EOF'
  \17\0e=======================================================\07
@@ -178,48 +180,151 @@ LABEL install
     APPEND loglevel=3 cde quiet autofowo
 EOF
 
+# Provide GRUB2 configuration for UEFI boot and Ventoy auto-detection
+GRUB_CFG_CONTENT='set default=0
+set timeout=10
+
+insmod all_video
+insmod font
+insmod gfxterm
+insmod part_gpt
+insmod part_msdos
+insmod iso9660
+insmod fat
+insmod ext2
+
+search --no-floppy --set=root --label TCL_FOWO_X64
+
+menuentry "Tiny Core Linux x64 + Fowo (Live)" {
+    linux /boot/vmlinuz64 loglevel=3 cde quiet
+    initrd /boot/corepure64.gz
+}
+
+menuentry "Tiny Core Linux x64 + Fowo (Automated Installation)" {
+    linux /boot/vmlinuz64 loglevel=3 cde quiet autofowo
+    initrd /boot/corepure64.gz
+}
+'
+
+echo "$GRUB_CFG_CONTENT" > "$STAGE_DIR/boot/grub/grub.cfg"
+echo "$GRUB_CFG_CONTENT" > "$STAGE_DIR/EFI/BOOT/grub.cfg"
+
+# Generate standalone UEFI bootloader (bootx64.efi)
+EFI_BOOT_FILE="$STAGE_DIR/EFI/BOOT/bootx64.efi"
+MKSTANDALONE=""
+if command -v grub2-mkstandalone &>/dev/null; then
+    MKSTANDALONE="grub2-mkstandalone"
+elif command -v grub-mkstandalone &>/dev/null; then
+    MKSTANDALONE="grub-mkstandalone"
+fi
+
+if [ -n "$MKSTANDALONE" ]; then
+    echo "Generating UEFI GRUB image ($MKSTANDALONE)..."
+    EARLY_GRUB="/tmp/early-grub-$$.cfg"
+    cat > "$EARLY_GRUB" << 'EOF'
+search --no-floppy --set=root --label TCL_FOWO_X64
+set prefix=($root)/boot/grub
+configfile $prefix/grub.cfg
+EOF
+    $MKSTANDALONE -O x86_64-efi -o "$EFI_BOOT_FILE" "boot/grub/grub.cfg=$EARLY_GRUB"
+    rm -f "$EARLY_GRUB"
+    cp "$EFI_BOOT_FILE" "$STAGE_DIR/EFI/BOOT/BOOTX64.EFI"
+else
+    echo "Warning: Neither grub2-mkstandalone nor grub-mkstandalone found. UEFI bootloader binary skipped."
+fi
+
+# Create EFI FAT image for El Torito UEFI boot
+EFI_IMG="$STAGE_DIR/boot/efi.img"
+rm -f "$EFI_IMG"
+if [ -f "$EFI_BOOT_FILE" ] && command -v mformat &>/dev/null && command -v mcopy &>/dev/null; then
+    echo "Creating EFI FAT system image (boot/efi.img)..."
+    truncate -s 16M "$EFI_IMG"
+    mformat -i "$EFI_IMG" -h 32 -t 32 -n 32 -c 1 ::
+    mmd -i "$EFI_IMG" ::/EFI ::/EFI/BOOT ::/boot ::/boot/grub
+    mcopy -o -i "$EFI_IMG" "$EFI_BOOT_FILE" ::/EFI/BOOT/bootx64.efi
+    mcopy -o -i "$EFI_IMG" "$STAGE_DIR/boot/grub/grub.cfg" ::/EFI/BOOT/grub.cfg
+    mcopy -o -i "$EFI_IMG" "$STAGE_DIR/boot/grub/grub.cfg" ::/boot/grub/grub.cfg
+fi
+
 # 6. Step 6: Generate bootable ISO
-echo "[6/6] Packing bootable ISO..."
+echo "[6/6] Packing bootable ISO (Dual UEFI + Legacy BIOS)..."
 rm -f "$OUTPUT_ISO"
 
 if command -v xorriso &>/dev/null; then
-    xorriso -as mkisofs \
-        -o "$OUTPUT_ISO" \
-        -b boot/isolinux/isolinux.bin \
-        -c boot/isolinux/boot.cat \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        -J -R \
-        -V "TCL_FOWO_X64" \
+    XORRISO_CMD=(
+        xorriso -as mkisofs
+        -o "$OUTPUT_ISO"
+        -b boot/isolinux/isolinux.bin
+        -c boot/isolinux/boot.cat
+        -no-emul-boot
+        -boot-load-size 4
+        -boot-info-table
+    )
+    if [ -f "$EFI_IMG" ]; then
+        XORRISO_CMD+=(
+            -eltorito-alt-boot
+            -e boot/efi.img
+            -no-emul-boot
+            -isohybrid-gpt-basdat
+        )
+    fi
+    XORRISO_CMD+=(
+        -J -R
+        -V "TCL_FOWO_X64"
         "$STAGE_DIR"
+    )
+    "${XORRISO_CMD[@]}"
 elif command -v mkisofs &>/dev/null; then
-    mkisofs \
-        -o "$OUTPUT_ISO" \
-        -b boot/isolinux/isolinux.bin \
-        -c boot/isolinux/boot.cat \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        -J -R \
-        -V "TCL_FOWO_X64" \
+    MKISOFS_CMD=(
+        mkisofs
+        -o "$OUTPUT_ISO"
+        -b boot/isolinux/isolinux.bin
+        -c boot/isolinux/boot.cat
+        -no-emul-boot
+        -boot-load-size 4
+        -boot-info-table
+    )
+    if [ -f "$EFI_IMG" ]; then
+        MKISOFS_CMD+=(
+            -eltorito-alt-boot
+            -e boot/efi.img
+            -no-emul-boot
+        )
+    fi
+    MKISOFS_CMD+=(
+        -J -R
+        -V "TCL_FOWO_X64"
         "$STAGE_DIR"
+    )
+    "${MKISOFS_CMD[@]}"
 else
-    genisoimage \
-        -o "$OUTPUT_ISO" \
-        -b boot/isolinux/isolinux.bin \
-        -c boot/isolinux/boot.cat \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -boot-info-table \
-        -J -R \
-        -V "TCL_FOWO_X64" \
+    GENISO_CMD=(
+        genisoimage
+        -o "$OUTPUT_ISO"
+        -b boot/isolinux/isolinux.bin
+        -c boot/isolinux/boot.cat
+        -no-emul-boot
+        -boot-load-size 4
+        -boot-info-table
+    )
+    if [ -f "$EFI_IMG" ]; then
+        GENISO_CMD+=(
+            -eltorito-alt-boot
+            -e boot/efi.img
+            -no-emul-boot
+        )
+    fi
+    GENISO_CMD+=(
+        -J -R
+        -V "TCL_FOWO_X64"
         "$STAGE_DIR"
+    )
+    "${GENISO_CMD[@]}"
 fi
 
 if command -v isohybrid &>/dev/null; then
-    echo "Applying isohybrid formatting..."
-    isohybrid "$OUTPUT_ISO" 2>/dev/null || true
+    echo "Applying isohybrid formatting (UEFI + MBR)..."
+    isohybrid --uefi "$OUTPUT_ISO" 2>/dev/null || isohybrid "$OUTPUT_ISO" 2>/dev/null || true
 fi
 
 echo ""
@@ -229,5 +334,8 @@ echo " Output ISO: $OUTPUT_ISO"
 echo " Size: $(du -h "$OUTPUT_ISO" | cut -f1)"
 echo "================================================="
 echo ""
-echo "To test in QEMU:"
+echo "To test in QEMU (BIOS mode):"
 echo "  qemu-system-x86_64 -m 1024 -cdrom $OUTPUT_ISO -boot d"
+echo "To test in QEMU (UEFI mode):"
+echo "  qemu-system-x86_64 -m 1024 -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom $OUTPUT_ISO"
+
