@@ -20,3 +20,5 @@ tcz: all
 iso: tcz
 	./scripts/build-iso.sh
 
+fedora-iso: all
+	./scripts/build-fedora-iso.sh

@@ -48,8 +48,9 @@ section .data
                     "# ==========================================", 10, \
                     "# Instructions:", 10, \
                     "# 1. Map dependencies using: ALIAS system_pkg = dep1, dep2", 10, \
-                    "# 2. Add custom build flags using FLAGS=...", 10, \
-                    "# 3. Save and exit to continue.", 10, \
+                    "# 2. Use system PM for specific deps: SYS [pm] pkg (e.g. SYS dnf openssl-devel)", 10, \
+                    "# 3. Add custom build flags using FLAGS=...", 10, \
+                    "# 4. Save and exit to continue.", 10, \
                     "# ==========================================", 10, \
                     "# Detected Dependencies:", 10, 0
     err_cfg db "Failed to open config file %s. Are you root?", 10, 0
@@ -87,7 +88,7 @@ section .data
     cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
     meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " >> %s", 0
     cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " >> %s", 0
-    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) system(", 34, "if command -v tce-load >/dev/null 2>&1; then tce-load -wi ", 34, " pkg ", 34, "; else %s install ", 34, " pkg ", 34, "; fi", 34, ") }' %s", 0
+    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^SYS / { sys_map[$3]=$2 } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) { if(system(", 34, "test -f /var/lib/fowo/packages/", 34, " pkg ", 34, ".db || test -f /tmp/fowo_packages/", 34, " pkg ", 34, ".db", 34, ")==0) continue; if(sys_map[pkg]!=", 34, 34, ") { pm=sys_map[pkg]; if(pm==", 34, "dnf", 34, ") cmd=", 34, "sudo dnf install -y ", 34, " pkg; else if(pm==", 34, "apt", 34, ") cmd=", 34, "sudo apt-get install -y ", 34, " pkg; else if(pm==", 34, "tce-load", 34, ") cmd=", 34, "tce-load -wi ", 34, " pkg; else cmd=pm ", 34, " install ", 34, " pkg; system(cmd); } else { system(", 34, "if command -v tce-load >/dev/null 2>&1; then tce-load -wi ", 34, " pkg ", 34, "; else %s install ", 34, " pkg ", 34, "; fi", 34, "); } } }' %s", 0
     
     ; TCZ packaging strings
     tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage", 0
