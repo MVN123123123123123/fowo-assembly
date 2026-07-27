@@ -68,6 +68,9 @@ mkdir -p "$STAGE_DIR/usr/local/bin"
 cp "$PROJECT_DIR/build/fowo" "$STAGE_DIR/usr/local/bin/"
 chmod 755 "$STAGE_DIR/usr/local/bin/fowo"
 
+cp "$PROJECT_DIR/scripts/install-os.sh" "$STAGE_DIR/usr/local/bin/install-os"
+chmod 755 "$STAGE_DIR/usr/local/bin/install-os"
+
 echo "[3/6] Configuring rootfs..."
 # Set root password to "fowo"
 echo "root:fowo" | chroot "$STAGE_DIR" chpasswd
