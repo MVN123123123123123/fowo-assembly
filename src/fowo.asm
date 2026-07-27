@@ -150,6 +150,15 @@ section .data
     msg_pkg_not_found db "Package '%s' not found in database.", 10, 0
     msg_saving_topo db "Saving package topology for %s...", 10, 0
     
+    fowo_pkg_name db "fowo", 0
+    fowo_default_repo db "https://github.com/MVN123123123123123/fowo-assembly", 0
+    fowo_update_cmd db "curl -sL %s/releases/download/latest/fowo -o /tmp/fowo_new && chmod +x /tmp/fowo_new && sudo mv /tmp/fowo_new /usr/local/bin/fowo", 0
+    msg_fowo_updating db "  Downloading latest fowo binary...", 10, 0
+    msg_fowo_updated db "  fowo updated successfully to %s", 10, 0
+    fowo_db_fmt1 db "echo 'URL=%s' > %s/fowo.db", 0
+    fowo_db_fmt2 db "echo 'COMMIT=%s' >> %s/fowo.db", 0
+    fowo_db_fmt3 db "echo 'DATE='$(date +%%s) >> %s/fowo.db && echo 'BUILD_TYPE=0' >> %s/fowo.db && echo 'TCZ_MODE=0' >> %s/fowo.db", 0
+
     ; Self-invocation format strings
     self_invoke_noedit db "%s -d install --no-edit %s", 0
     self_invoke_edit db "%s -d install %s", 0
@@ -1253,6 +1262,28 @@ update_single_pkg:
     ; r14 = db dir (from rbx)
     mov r14, rbx
     
+    ; Clear stored buffers
+    mov byte [stored_url], 0
+    mov byte [stored_commit], 0
+    mov byte [stored_bconf], 0
+    mov byte [stored_btype], 0
+    mov byte [stored_tcz], 0
+
+    mov rdi, pkg_name_buf
+    mov rsi, fowo_pkg_name
+    call strcmp
+    cmp eax, 0
+    jne .skip_fowo_def
+
+    mov rdi, stored_url
+    mov rsi, fowo_default_repo
+.copy_f_def:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_f_def
+.skip_fowo_def:
+
     ; Print "Checking <pkg>..."
     mov rdi, msg_checking
     mov rsi, pkg_name_buf
@@ -1273,15 +1304,12 @@ update_single_pkg:
     mov rsi, read_mode
     call fopen
     test rax, rax
-    jz .usp_done
+    jnz .usp_has_db
+    cmp byte [stored_url], 0
+    je .usp_done
+    jmp .usp_check_remote
+.usp_has_db:
     mov r12, rax            ; r12 = FILE*
-    
-    ; Clear stored buffers
-    mov byte [stored_url], 0
-    mov byte [stored_commit], 0
-    mov byte [stored_bconf], 0
-    mov byte [stored_btype], 0
-    mov byte [stored_tcz], 0
 
 .usp_read_loop:
     mov rdi, line_buf
@@ -1376,6 +1404,7 @@ update_single_pkg:
     mov rdi, r12
     call fclose
     
+.usp_check_remote:
     ; Check that we have a URL
     cmp byte [stored_url], 0
     je .usp_done
@@ -1426,6 +1455,12 @@ update_single_pkg:
     mov rsi, pkg_name_buf
     xor eax, eax
     call printf
+    
+    mov rdi, pkg_name_buf
+    mov rsi, fowo_pkg_name
+    call strcmp
+    cmp eax, 0
+    je .do_fowo_binary_update
     
     ; Construct build dir path for this package
     cmp byte [debug_mode_g], 1
@@ -1550,6 +1585,56 @@ update_single_pkg:
 .usp_run_self:
     mov rdi, cmd_buf2
     call system
+    jmp .usp_done
+
+.do_fowo_binary_update:
+    mov rdi, msg_fowo_updating
+    xor eax, eax
+    call printf
+
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, fowo_update_cmd
+    mov rcx, stored_url
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf2
+    call system
+
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, fowo_db_fmt1
+    mov rcx, stored_url
+    mov r8, r14
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf2
+    call system
+
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, fowo_db_fmt2
+    mov rcx, remote_commit
+    mov r8, r14
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf2
+    call system
+
+    mov rdi, cmd_buf2
+    mov rsi, 1024
+    mov rdx, fowo_db_fmt3
+    mov rcx, r14
+    mov r8, r14
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf2
+    call system
+
+    mov rdi, msg_fowo_updated
+    mov rsi, remote_commit
+    xor eax, eax
+    call printf
     jmp .usp_done
 
 .usp_up_to_date:
