@@ -155,7 +155,7 @@ EOF
         chroot "$NEWROOT" /bin/sh -c "fowo install --no-edit https://github.com/OpenRC/openrc"
     elif [ "$INIT_CHOICE" = "3" ]; then
         echo "Installing runit..."
-        chroot "$NEWROOT" /bin/sh -c "fowo install --no-edit https://github.com/madler/runit" # Placeholder for runit git source
+        chroot "$NEWROOT" /bin/sh -c "fowo install --no-edit https://github.com/g-pape/runit" # Placeholder for runit git source
     elif [ "$INIT_CHOICE" = "4" ]; then
         echo "Setting up DIY Init..."
         cat > "$NEWROOT/sbin/init" << 'EOF'
