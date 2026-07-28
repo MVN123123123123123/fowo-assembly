@@ -165,9 +165,9 @@ section .data
     
     fowo_pkg_name db "fowo", 0
     fowo_default_repo db "https://github.com/MVN123123123123123/fowo-assembly", 0
-    fowo_update_cmd db "curl -sL %s/releases/download/latest/fowo -o /tmp/fowo_new && chmod +x /tmp/fowo_new && sudo mv /tmp/fowo_new /usr/local/bin/fowo", 0
     msg_fowo_updating db "  Downloading latest fowo binary...", 10, 0
     msg_fowo_updated db "  fowo updated successfully to %s", 10, 0
+    fowo_update_cmd db "curl -sL %s/releases/download/latest/fowo -o /tmp/fowo_new && chmod +x /tmp/fowo_new && sudo mv /tmp/fowo_new %s", 0
     fowo_db_fmt1 db "echo 'URL=%s' > %s/fowo.db", 0
     fowo_db_fmt2 db "echo 'COMMIT=%s' >> %s/fowo.db", 0
     fowo_db_fmt3 db "echo 'DATE='$(date +%%s) >> %s/fowo.db && echo 'BUILD_TYPE=0' >> %s/fowo.db && echo 'TCZ_MODE=0' >> %s/fowo.db", 0
@@ -1791,6 +1791,7 @@ update_single_pkg:
     mov rsi, 4096
     mov rdx, fowo_update_cmd
     mov rcx, stored_url
+    mov r8, self_path_buf
     xor eax, eax
     call snprintf
     mov rdi, cmd_buf2
