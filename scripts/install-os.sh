@@ -55,6 +55,17 @@ fi
 NEWROOT="/mnt/newroot"
 mkdir -p "$NEWROOT"
 
+cleanup_mounts() {
+    echo "Cleaning up mounts..."
+    umount "$NEWROOT/run" 2>/dev/null || true
+    umount "$NEWROOT/sys" 2>/dev/null || true
+    umount "$NEWROOT/proc" 2>/dev/null || true
+    umount "$NEWROOT/dev" 2>/dev/null || true
+    umount "$NEWROOT/boot/efi" 2>/dev/null || true
+    umount "$NEWROOT" 2>/dev/null || true
+}
+trap cleanup_mounts EXIT
+
 echo "Mounting partitions..."
 mount "$ROOT_PART" "$NEWROOT"
 
@@ -213,7 +224,12 @@ if [ -n "$EFI_PART" ]; then
     chroot "$NEWROOT" grub2-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=FOWO
 else
     # BIOS install (assumes root part is like /dev/sda2, we install to /dev/sda)
-    DISK_DEV=$(echo "$ROOT_PART" | sed 's/[0-9]*//g')
+    # Handle both /dev/sdXN and /dev/nvme0n1pN partition naming
+    if echo "$ROOT_PART" | grep -qE 'nvme|mmcblk'; then
+        DISK_DEV=$(echo "$ROOT_PART" | sed 's/p[0-9]*$//')
+    else
+        DISK_DEV=$(echo "$ROOT_PART" | sed 's/[0-9]*$//')
+    fi
     chroot "$NEWROOT" grub2-install "$DISK_DEV"
 fi
 

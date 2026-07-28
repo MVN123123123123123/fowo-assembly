@@ -12,6 +12,9 @@ build/fowo.o: src/fowo.asm
 	$(NASM) $(NASM_FLAGS) src/fowo.asm -o build/fowo.o
 
 clean:
+	rm -f build/fowo.o build/fowo
+
+distclean:
 	rm -rf build/*
 
 tcz: all

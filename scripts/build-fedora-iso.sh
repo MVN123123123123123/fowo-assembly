@@ -121,7 +121,9 @@ mkdir -p "$ISO_STAGE/LiveOS" "$ISO_STAGE/boot/grub"
 
 # Unmount before squashing
 cleanup
-trap - EXIT
+
+# Re-arm the trap in case subsequent steps fail
+trap cleanup EXIT
 
 # Normalize file permissions before squashing
 echo "Sanitizing file permissions..."

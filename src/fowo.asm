@@ -83,6 +83,8 @@ section .data
     cargo_cmd db "cd %s && cargo build --release", 0
     
     msg_unsupported db "Unsupported build system or no build file found.", 10, 0
+    msg_build_fail db "Build failed. Aborting.", 10, 0
+    msg_clone_fail db "Git clone/pull failed. Aborting.", 10, 0
     
     scan_msg db "Scanning dependencies...", 10, 0
     cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
@@ -120,7 +122,7 @@ section .data
     
     ; DB write format: one line per field
     db_write_url db "URL=%s", 10, 0
-    db_write_commit db "COMMIT=%s", 0
+    db_write_commit db "COMMIT=%s", 10, 0
     db_write_date db "DATE=%ld", 10, 0
     db_write_btype db "BUILD_TYPE=%d", 10, 0
     db_write_bconf db "BUILD_CONF=%s", 10, 0
@@ -176,10 +178,10 @@ section .data
     popen_read db "r", 0
 
 section .bss
-    cmd_buf resb 1024
-    cmd_buf2 resb 1024
+    cmd_buf resb 4096
+    cmd_buf2 resb 4096
     file_buf resb 512
-    actual_build_dir resb 1024
+    actual_build_dir resb 4096
     tcz_mode   resb 1
     build_type resb 1
     no_edit_mode resb 1
@@ -195,7 +197,7 @@ section .bss
     stored_bconf resb 256
     stored_btype resb 4
     stored_tcz resb 1
-    line_buf resb 1024
+    line_buf resb 4096
     pkg_name_buf resb 256
     self_path_buf resb 512
     
@@ -399,6 +401,10 @@ main:
 
 ; =========================================================================
 ; Setup paths (install flow)
+; NOTE: r12 and r13 are repurposed here. After this point:
+;   r12 = config path (was argc)
+;   r13 = build dir path (was argv)
+;   r14 = debug mode flag,  r15 = URL / git link
 ; =========================================================================
 .setup_paths:
     cmp r14, 1
@@ -443,6 +449,8 @@ main:
     mov rsi, r12
     xor eax, eax
     call printf
+    mov eax, 1
+    jmp .exit
 
 .clone:
     ; --- Extract basename from URL ---
@@ -453,6 +461,11 @@ main:
     je .found_end
     cmp byte [rcx], '/'
     jne .not_slash
+    ; Only update basename if next char is a real path component
+    cmp byte [rcx + 1], 0
+    je .not_slash
+    cmp byte [rcx + 1], '/'
+    je .not_slash
     lea rbx, [rcx + 1]
 .not_slash:
     inc rcx
@@ -467,13 +480,24 @@ main:
     test al, al
     jnz .copy_name
     
+    ; Calculate string length and strip trailing '/' characters
     lea rax, [file_buf]
     mov rcx, rdi
     sub rcx, rax
+    dec rcx                             ; rcx = strlen(file_buf)
+.strip_trailing_slash:
+    test rcx, rcx
+    jz .no_git
+    cmp byte [file_buf + rcx - 1], '/'
+    jne .check_dot_git
     dec rcx
+    mov byte [file_buf + rcx], 0
+    lea rdi, [file_buf + rcx + 1]       ; adjust rdi past new null
+    jmp .strip_trailing_slash
+.check_dot_git:
     cmp rcx, 4
     jl .no_git
-    cmp dword [rdi - 5], 0x7469672e ; ".git"
+    cmp dword [rdi - 5], 0x7469672e     ; ".git" in little-endian
     jne .no_git
     mov byte [rdi - 5], 0
 .no_git:
@@ -488,7 +512,7 @@ main:
     jnz .copy_pkg_name
 
     mov rdi, actual_build_dir
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, build_dir_fmt
     mov rcx, r13
     mov r8, file_buf
@@ -504,7 +528,7 @@ main:
     call printf
 
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, clone_fmt
     mov rcx, r13
     mov r8, r15
@@ -513,10 +537,12 @@ main:
     
     mov rdi, cmd_buf
     call system
+    test eax, eax
+    jnz .clone_fail
 
     ; --- Skip scan_deps and editor if --no-edit ---
     cmp byte [no_edit_mode], 1
-    je .check_meson
+    je .run_deps
 
 .scan_deps:
     mov rdi, scan_msg
@@ -524,7 +550,7 @@ main:
     call printf
 
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cmake_grep
     mov rcx, r13
     mov r8, r12
@@ -534,7 +560,7 @@ main:
     call system
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, meson_grep
     mov rcx, r13
     mov r8, r12
@@ -544,7 +570,7 @@ main:
     call system
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cargo_grep
     mov rcx, r13
     mov r8, r12
@@ -561,7 +587,7 @@ main:
     mov rax, editor_def
 .got_editor:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cmd_fmt
     mov rcx, rax
     mov r8, r12
@@ -571,8 +597,9 @@ main:
     mov rdi, cmd_buf
     call system
 
+.run_deps:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, install_deps_cmd
     mov rcx, self_path_buf
     mov r8, r12
@@ -650,7 +677,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, make_cmd
     mov rcx, r13
     xor eax, eax
@@ -658,6 +685,8 @@ main:
     
     mov rdi, cmd_buf
     call system
+    test eax, eax
+    jnz .build_fail
     jmp .post_build
 
 .do_cmake:
@@ -667,7 +696,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cmake_cmd
     mov rcx, r13
     xor eax, eax
@@ -675,6 +704,8 @@ main:
     
     mov rdi, cmd_buf
     call system
+    test eax, eax
+    jnz .build_fail
     jmp .post_build
 
 .do_meson:
@@ -684,7 +715,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, meson_cmd
     mov rcx, r13
     xor eax, eax
@@ -692,6 +723,8 @@ main:
     
     mov rdi, cmd_buf
     call system
+    test eax, eax
+    jnz .build_fail
     jmp .post_build
 
 .do_cargo:
@@ -701,7 +734,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cargo_cmd
     mov rcx, r13
     xor eax, eax
@@ -709,6 +742,8 @@ main:
     
     mov rdi, cmd_buf
     call system
+    test eax, eax
+    jnz .build_fail
     jmp .post_build
 
 .unsupported:
@@ -716,6 +751,20 @@ main:
     xor eax, eax
     call printf
     jmp .done
+
+.build_fail:
+    mov rdi, msg_build_fail
+    xor eax, eax
+    call printf
+    mov eax, 1
+    jmp .exit
+
+.clone_fail:
+    mov rdi, msg_clone_fail
+    xor eax, eax
+    call printf
+    mov eax, 1
+    jmp .exit
 
 .usage:
     mov rdi, usage_msg
@@ -751,7 +800,7 @@ main:
 
 .norm_install_make:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, norm_make_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -762,7 +811,7 @@ main:
 
 .norm_install_cmake:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, norm_cmake_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -773,7 +822,7 @@ main:
 
 .norm_install_meson:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, norm_meson_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -784,7 +833,7 @@ main:
 
 .norm_install_cargo:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, norm_cargo_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -814,7 +863,7 @@ main:
 
 .tcz_install_make:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, make_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -825,7 +874,7 @@ main:
 
 .tcz_install_cmake:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cmake_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -836,7 +885,7 @@ main:
 
 .tcz_install_meson:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, meson_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -847,7 +896,7 @@ main:
 
 .tcz_install_cargo:
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, cargo_install_cmd
     mov rcx, r13
     xor eax, eax
@@ -862,7 +911,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, tcz_mksquashfs
     mov rcx, r15
     xor eax, eax
@@ -871,7 +920,7 @@ main:
     call system
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, tcz_md5
     mov rcx, r15
     mov r8, r15
@@ -885,7 +934,7 @@ main:
     call printf
     
     mov rdi, cmd_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, tcz_move
     mov rcx, r15
     xor eax, eax
@@ -930,7 +979,7 @@ main:
     test rax, rax
     jz .ua_close
     
-    lea rsi, [rax + 19]
+    lea rsi, [rax + 19]        ; d_name offset in struct dirent (Linux x86_64 glibc)
     mov rdi, dir_entry_name
 .ua_copy_name:
     lodsb
@@ -1096,7 +1145,7 @@ save_topology:
 .st_mkdir:
     ; mkdir -p <db_dir>
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, mkdir_fmt
     mov rcx, rbx
     xor eax, eax
@@ -1115,7 +1164,7 @@ save_topology:
     
     ; Get current commit via popen
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, rev_parse_fmt
     mov rcx, r14
     xor eax, eax
@@ -1167,16 +1216,12 @@ save_topology:
     xor eax, eax
     call fprintf
     
-    ; Write COMMIT (no newline in format, we add it)
+    ; Write COMMIT
     mov rdi, rbx
     mov rsi, db_write_commit
     mov rdx, local_commit
     xor eax, eax
     call fprintf
-    ; Write newline
-    mov rdi, newline_char
-    mov rsi, rbx
-    call fputs
     
     ; Write DATE (unix timestamp)
     xor edi, edi
@@ -1313,7 +1358,7 @@ update_single_pkg:
 
 .usp_read_loop:
     mov rdi, line_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, r12
     call fgets
     test rax, rax
@@ -1385,6 +1430,7 @@ update_single_pkg:
     cmp eax, 0
     jne .usp_check_tcz
     mov al, [line_buf + 11]
+    sub al, '0'                ; convert ASCII digit to integer
     mov [stored_btype], al
     jmp .usp_read_loop
 
@@ -1411,7 +1457,7 @@ update_single_pkg:
     
     ; --- Query remote HEAD via git ls-remote (no API hit) ---
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, ls_remote_fmt
     mov rcx, stored_url
     xor eax, eax
@@ -1471,7 +1517,7 @@ update_single_pkg:
     mov rcx, build_dbg
 .usp_build_set:
     mov rdi, actual_build_dir
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, build_dir_fmt
     mov r8, pkg_name_buf
     xor eax, eax
@@ -1482,7 +1528,7 @@ update_single_pkg:
     je .usp_full_install
 
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, git_diff_fmt
     mov rcx, actual_build_dir
     mov r8, stored_commit
@@ -1498,7 +1544,7 @@ update_single_pkg:
     mov r12, rax
     
     mov rdi, line_buf
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, r12
     call fgets
     mov r13, rax
@@ -1543,7 +1589,7 @@ update_single_pkg:
     
 .usp_silent_format:
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rcx, self_path_buf
     mov r8, stored_url
     xor eax, eax
@@ -1576,7 +1622,7 @@ update_single_pkg:
 
 .usp_full_format:
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rcx, self_path_buf
     mov r8, stored_url
     xor eax, eax
@@ -1593,7 +1639,7 @@ update_single_pkg:
     call printf
 
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, fowo_update_cmd
     mov rcx, stored_url
     xor eax, eax
@@ -1602,7 +1648,7 @@ update_single_pkg:
     call system
 
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, fowo_db_fmt1
     mov rcx, stored_url
     mov r8, r14
@@ -1612,7 +1658,7 @@ update_single_pkg:
     call system
 
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, fowo_db_fmt2
     mov rcx, remote_commit
     mov r8, r14
@@ -1622,10 +1668,11 @@ update_single_pkg:
     call system
 
     mov rdi, cmd_buf2
-    mov rsi, 1024
+    mov rsi, 4096
     mov rdx, fowo_db_fmt3
     mov rcx, r14
     mov r8, r14
+    mov r9, r14
     xor eax, eax
     call snprintf
     mov rdi, cmd_buf2

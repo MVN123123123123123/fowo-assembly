@@ -20,7 +20,7 @@ echo "[1/6] Detecting newest Tiny Core Linux x64 release..."
 TCL_VER=""
 for ver in 17.x 16.x 15.x; do
     ISO_TEST_URL="http://tinycorelinux.net/${ver}/x86_64/release/TinyCorePure64-current.iso"
-    if curl -sI "$ISO_TEST_URL" | grep -q "200 OK"; then
+    if curl -sIL "$ISO_TEST_URL" | grep -q "200"; then
         TCL_VER="$ver"
         echo "Found latest release: TCL $TCL_VER"
         break
@@ -38,7 +38,11 @@ CACHED_ISO="$CACHE_DIR/TinyCorePure64-${TCL_VER}.iso"
 
 if [ ! -f "$CACHED_ISO" ]; then
     echo "Downloading $BASE_ISO_URL..."
-    curl -sL "$BASE_ISO_URL" -o "$CACHED_ISO"
+    if ! curl -sfL "$BASE_ISO_URL" -o "$CACHED_ISO"; then
+        echo "Error: Failed to download base ISO from $BASE_ISO_URL"
+        rm -f "$CACHED_ISO"
+        exit 1
+    fi
 else
     echo "Using cached ISO: $CACHED_ISO"
 fi

@@ -90,7 +90,8 @@ if ! command -v mkfs.ext4 >/dev/null 2>&1; then
 fi
 
 mkfs.vfat -F32 "$ESP_DEV"
-mkfs.ext4 -F "$ROOT_DEV"
+ROOT_LABEL="TCL_FOWO"
+mkfs.ext4 -F -L "$ROOT_LABEL" "$ROOT_DEV"
 
 MNT_DIR="/tmp/tcl_install_target"
 mkdir -p "$MNT_DIR"
@@ -174,13 +175,12 @@ mkdir -p /usr/local/share/locale
 
 grub-install --target=x86_64-efi --efi-directory="$MNT_DIR/boot/efi" --boot-directory="$MNT_DIR/boot" --removable "$TARGET_DEV"
 
-PART_LABEL="$(basename "$ROOT_DEV")"
 cat > "$MNT_DIR/boot/grub/grub.cfg" << EOF
 set timeout=5
 set default=0
 
 menuentry "Tiny Core Linux x64 with Fowo" {
-    linux /boot/vmlinuz64 quiet waitusb=5 tce=${PART_LABEL}
+    linux /boot/vmlinuz64 quiet waitusb=5 tce=LABEL=${ROOT_LABEL}
     initrd /boot/corepure64.gz
 }
 EOF
