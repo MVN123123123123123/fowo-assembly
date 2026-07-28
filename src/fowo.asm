@@ -27,6 +27,15 @@ section .data
                  "       fowo [-d] update <package>", 10, 0
     install_cmd db "install", 0
     update_cmd db "update", 0
+    uninstall_cmd db "uninstall", 0
+    remove_cmd db "remove", 0
+    list_cmd db "list", 0
+    
+    uninstall_msg db "Uninstalling package: %s...", 10, 0
+    uninstall_sh_fmt db "DB=%s/%s; sudo xargs -a $DB.files rm -f 2>/dev/null; sudo rm -f $DB.files $DB.db", 0
+    
+    list_sh_fmt db "echo 'Installed packages:'; for f in %s/*.db; do [ -e ", 34, "$f", 34, " ] || continue; pkg=$(basename $f .db); url=$(awk -F= '/^URL=/{print $2}' $f); date_ts=$(awk -F= '/^DATE=/{print $2}' $f); if [ -n ", 34, "$date_ts", 34, " ]; then date_str=$(date -d @$date_ts 2>/dev/null || echo $date_ts); else date_str='Unknown'; fi; echo ' - '$pkg; echo '   URL:  '$url; echo '   Date: '$date_str; done", 0
+    
     flag_d db "-d", 0
     flag_tcz db "--tcz", 0
     flag_no_edit db "--no-edit", 0
@@ -87,6 +96,7 @@ section .data
     msg_clone_fail db "Git clone/pull failed. Aborting.", 10, 0
     
     scan_msg db "Scanning dependencies...", 10, 0
+    makefile_grep db "grep -hE 'pkg-config' %s/Makefile 2>/dev/null | sed -n -E ", 34, "s/.*pkg-config[[:space:]]+(--cflags|--libs|--cflags --libs)[[:space:]]+([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
     cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
     meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " >> %s", 0
     cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " >> %s", 0
@@ -107,10 +117,11 @@ section .data
     msg_tcz_done db "TCZ package built and installed.", 10, 0
     
     msg_normal_install db "Installing to system (Normal Linux)...", 10, 0
-    norm_make_install_cmd db "cd %s && sudo make install", 0
-    norm_cmake_install_cmd db "cd %s && sudo cmake --install build", 0
-    norm_meson_install_cmd db "cd %s && sudo meson install -C build", 0
-    norm_cargo_install_cmd db "for f in %s/target/release/*; do test -f $f && test -x $f && sudo cp $f /usr/local/bin/; done", 0
+    norm_make_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo make DESTDIR=/tmp/fowo_dest_stage install", 0
+    norm_cmake_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage cmake --install build", 0
+    norm_meson_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage meson install -C build", 0
+    norm_cargo_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_dest_stage/usr/local/bin/; done", 0
+    track_files_fmt db "cd /tmp/fowo_dest_stage && find . -type f | sed 's|^\./|/|' | sudo tee %s/%s.files >/dev/null && sudo cp -a /tmp/fowo_dest_stage/* / 2>/dev/null || true && sudo rm -rf /tmp/fowo_dest_stage", 0
     
     ; -----------------------------------------------
     ; Topology database strings
@@ -197,6 +208,7 @@ section .bss
     stored_bconf resb 256
     stored_btype resb 4
     stored_tcz resb 1
+    stored_date resb 32
     line_buf resb 4096
     pkg_name_buf resb 256
     self_path_buf resb 512
@@ -281,8 +293,30 @@ main:
     mov rsi, install_cmd
     call strcmp
     cmp eax, 0
-    jne .usage
-    
+    je .parse_install_debug
+
+    ; Check "uninstall"
+    mov rdi, [r13+16]
+    mov rsi, uninstall_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_uninstall_debug
+    mov rdi, [r13+16]
+    mov rsi, remove_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_uninstall_debug
+
+    ; Check "list"
+    mov rdi, [r13+16]
+    mov rsi, list_cmd
+    call strcmp
+    cmp eax, 0
+    je .do_list_packages
+
+    jmp .usage
+
+.parse_install_debug:
     ; --- Debug install: parse flags from argv[3] onward ---
     cmp r12, 4
     jl .usage
@@ -333,6 +367,12 @@ main:
     mov r15, [r13+24]       ; r15 = package name
     jmp .do_update_one
     
+.parse_uninstall_debug:
+    cmp r12, 4
+    jl .usage
+    mov r15, [r13+24]
+    jmp .uninstall
+
     ; -------------------------------------------------------
     ; No debug: check argv[1] for command
     ; -------------------------------------------------------
@@ -349,8 +389,30 @@ main:
     mov rsi, install_cmd
     call strcmp
     cmp eax, 0
-    jne .usage
-    
+    je .parse_install_nodebug
+
+    ; Check "uninstall"
+    mov rdi, [r13+8]
+    mov rsi, uninstall_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_uninstall_nodebug
+    mov rdi, [r13+8]
+    mov rsi, remove_cmd
+    call strcmp
+    cmp eax, 0
+    je .parse_uninstall_nodebug
+
+    ; Check "list"
+    mov rdi, [r13+8]
+    mov rsi, list_cmd
+    call strcmp
+    cmp eax, 0
+    je .do_list_packages
+
+    jmp .usage
+
+.parse_install_nodebug:
     ; --- Non-debug install: parse flags from argv[2] onward ---
     cmp r12, 3
     jl .usage
@@ -398,6 +460,12 @@ main:
     jl .do_update_all
     mov r15, [r13+16]
     jmp .do_update_one
+
+.parse_uninstall_nodebug:
+    cmp r12, 3
+    jl .usage
+    mov r15, [r13+16]
+    jmp .uninstall
 
 ; =========================================================================
 ; Setup paths (install flow)
@@ -548,6 +616,16 @@ main:
     mov rdi, scan_msg
     xor eax, eax
     call printf
+
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, makefile_grep
+    mov rcx, r13
+    mov r8, r12
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
 
     mov rdi, cmd_buf
     mov rsi, 4096
@@ -807,7 +885,7 @@ main:
     call snprintf
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .track_files
 
 .norm_install_cmake:
     mov rdi, cmd_buf
@@ -818,7 +896,7 @@ main:
     call snprintf
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .track_files
 
 .norm_install_meson:
     mov rdi, cmd_buf
@@ -829,7 +907,7 @@ main:
     call snprintf
     mov rdi, cmd_buf
     call system
-    jmp .done
+    jmp .track_files
 
 .norm_install_cargo:
     mov rdi, cmd_buf
@@ -838,6 +916,26 @@ main:
     mov rcx, r13
     xor eax, eax
     call snprintf
+    mov rdi, cmd_buf
+    call system
+    jmp .track_files
+
+.track_files:
+    cmp byte [debug_mode_g], 1
+    je .tf_debug
+    lea rbx, [pkg_db_prod]
+    jmp .tf_run
+.tf_debug:
+    lea rbx, [pkg_db_dbg]
+.tf_run:
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, track_files_fmt
+    mov rcx, rbx
+    mov r8, pkg_name_buf
+    xor eax, eax
+    call snprintf
+    
     mov rdi, cmd_buf
     call system
     jmp .done
@@ -1097,6 +1195,57 @@ main:
 ; =========================================================================
 ; Common exit points for main
 ; =========================================================================
+
+; =========================================================================
+; UNINSTALL: remove package
+; =========================================================================
+.uninstall:
+    mov rdi, uninstall_msg
+    mov rsi, r15
+    xor eax, eax
+    call printf
+    
+    cmp byte [debug_mode_g], 1
+    je .un_debug
+    lea rbx, [pkg_db_prod]
+    jmp .un_run
+.un_debug:
+    lea rbx, [pkg_db_dbg]
+.un_run:
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, uninstall_sh_fmt
+    mov rcx, rbx
+    mov r8, r15
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
+; =========================================================================
+; LIST: list installed packages
+; =========================================================================
+.do_list_packages:
+    cmp byte [debug_mode_g], 1
+    je .list_debug
+    lea rbx, [pkg_db_prod]
+    jmp .list_run
+.list_debug:
+    lea rbx, [pkg_db_dbg]
+.list_run:
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, list_sh_fmt
+    mov rcx, rbx
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf
+    call system
+    jmp .done
+
 .done:
     xor eax, eax
 .exit:
@@ -1699,6 +1848,3 @@ update_single_pkg:
     pop rbx
     leave
     ret
-
-
-
