@@ -10,13 +10,14 @@ on:
 
 jobs:
   build:
-    runs-on: fedora-latest
+    runs-on: ubuntu-latest
+    container: fedora:latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y nasm gcc make
+        run: dnf update -y && dnf install -y nasm gcc make git
 
       - name: Build Fowo
         run: make all
