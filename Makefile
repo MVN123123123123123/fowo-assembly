@@ -9,6 +9,7 @@ build/fowo: build/fowo.o
 	$(CC) $(LDFLAGS) build/fowo.o -o build/fowo
 
 build/fowo.o: src/fowo.asm
+	mkdir -p build
 	$(NASM) $(NASM_FLAGS) src/fowo.asm -o build/fowo.o
 
 clean:
