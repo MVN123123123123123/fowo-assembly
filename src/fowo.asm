@@ -65,7 +65,7 @@ section .data
     err_cfg db "Failed to open config file %s. Are you root?", 10, 0
     
     cmd_fmt db "%s %s", 0
-    clone_fmt db "D='%s'; if [ ! -d $D/.git ]; then rm -rf $D && git clone --recursive %s $D; else echo 'Pulling latest...'; cd $D && git pull; fi", 0
+    clone_fmt db "D='%s'; if [ ! -d $D/.git ]; then rm -rf $D && git clone --depth 1 --recursive %s $D; else echo 'Pulling latest...'; cd $D && git pull; fi", 0
     build_dir_fmt db "%s/%s", 0
     clone_msg db "Cloning %s to %s...", 10, 0
     
@@ -187,6 +187,13 @@ section .data
     db_ext db ".db", 0
     newline_char db 10, 0
     popen_read db "r", 0
+    env_fowo_build_dir db "FOWO_BUILD_DIR", 0
+    env_fowo_root      db "FOWO_ROOT", 0
+    env_tmpdir         db "TMPDIR", 0
+    fowo_root_build_fmt db "%s/tmp/fowo_build", 0
+    tmpdir_build_fmt   db "%s/fowo_build", 0
+    mkdir_p_cmd_fmt    db "mkdir -p %s", 0
+    str_fmt            db "%s", 0
 
 section .bss
     cmd_buf resb 4096
@@ -216,6 +223,7 @@ section .bss
     ; For update iteration
     dir_entry_name resb 256
     timestamp_buf resb 32
+    resolved_build_dir resb 4096
 
 section .text
     global _start
@@ -479,7 +487,8 @@ main:
     je .is_debug
     
     mov r12, config_prod
-    mov r13, build_prod
+    call resolve_build_dir
+    mov r13, rax
     jmp .open_config
 
 .is_debug:
@@ -1052,7 +1061,8 @@ main:
     cmp r14, 1
     je .ua_debug
     mov r12, config_prod
-    mov r13, build_prod
+    call resolve_build_dir
+    mov r13, rax
     lea rbx, [pkg_db_prod]
     jmp .ua_start
 .ua_debug:
@@ -1145,7 +1155,8 @@ main:
     cmp r14, 1
     je .uo_debug
     mov r12, config_prod
-    mov r13, build_prod
+    call resolve_build_dir
+    mov r13, rax
     lea rbx, [pkg_db_prod]
     jmp .uo_start
 .uo_debug:
@@ -1660,7 +1671,8 @@ update_single_pkg:
     ; Construct build dir path for this package
     cmp byte [debug_mode_g], 1
     je .usp_build_dbg
-    mov rcx, build_prod
+    call resolve_build_dir
+    mov rcx, rax
     jmp .usp_build_set
 .usp_build_dbg:
     mov rcx, build_dbg
@@ -1846,6 +1858,90 @@ update_single_pkg:
     pop r14
     pop r13
     pop r12
+    pop rbx
+    leave
+    ret
+
+; =========================================================================
+; resolve_build_dir() -> rax: pointer to build directory string
+; =========================================================================
+resolve_build_dir:
+    push rbp
+    mov rbp, rsp
+    push rbx
+
+    cmp byte [debug_mode_g], 1
+    je .rbd_debug
+
+    ; Check FOWO_BUILD_DIR
+    mov rdi, env_fowo_build_dir
+    call getenv
+    test rax, rax
+    jnz .rbd_custom_path
+
+    ; Check FOWO_ROOT
+    mov rdi, env_fowo_root
+    call getenv
+    test rax, rax
+    jz .rbd_check_tmpdir
+
+    ; Format %s/tmp/fowo_build
+    mov rdi, resolved_build_dir
+    mov rsi, 4096
+    mov rdx, fowo_root_build_fmt
+    mov rcx, rax
+    xor eax, eax
+    call snprintf
+    jmp .rbd_mkdir
+
+.rbd_check_tmpdir:
+    mov rdi, env_tmpdir
+    call getenv
+    test rax, rax
+    jz .rbd_default
+
+    ; Format %s/fowo_build
+    mov rdi, resolved_build_dir
+    mov rsi, 4096
+    mov rdx, tmpdir_build_fmt
+    mov rcx, rax
+    xor eax, eax
+    call snprintf
+    jmp .rbd_mkdir
+
+.rbd_custom_path:
+    mov rdi, resolved_build_dir
+    mov rsi, 4096
+    mov rdx, str_fmt
+    mov rcx, rax
+    xor eax, eax
+    call snprintf
+    jmp .rbd_mkdir
+
+.rbd_default:
+    mov rax, build_prod
+    pop rbx
+    leave
+    ret
+
+.rbd_debug:
+    mov rax, build_dbg
+    pop rbx
+    leave
+    ret
+
+.rbd_mkdir:
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, mkdir_p_cmd_fmt
+    mov rcx, resolved_build_dir
+    xor eax, eax
+    call snprintf
+
+    mov rdi, cmd_buf
+    call system
+
+    mov rax, resolved_build_dir
     pop rbx
     leave
     ret

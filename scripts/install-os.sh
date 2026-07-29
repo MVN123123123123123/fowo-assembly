@@ -230,7 +230,10 @@ else
             exit 1
         }
     done
-    
+
+    # Clean up temporary build workspace
+    rm -rf "$NEWROOT/tmp/fowo_build" "$NEWROOT/tmp/fowo_dest_stage" /tmp/fowo_build /tmp/fowo_dest_stage 2>/dev/null || true
+
     echo "Setting up FeOwOra identity..."
     mkdir -p "$NEWROOT/etc"
     cat > "$NEWROOT/etc/os-release" << 'EOF'
