@@ -1869,6 +1869,7 @@ resolve_build_dir:
     push rbp
     mov rbp, rsp
     push rbx
+    sub rsp, 8
 
     cmp byte [debug_mode_g], 1
     je .rbd_debug
@@ -1920,12 +1921,14 @@ resolve_build_dir:
 
 .rbd_default:
     mov rax, build_prod
+    add rsp, 8
     pop rbx
     leave
     ret
 
 .rbd_debug:
     mov rax, build_dbg
+    add rsp, 8
     pop rbx
     leave
     ret
@@ -1942,6 +1945,7 @@ resolve_build_dir:
     call system
 
     mov rax, resolved_build_dir
+    add rsp, 8
     pop rbx
     leave
     ret
