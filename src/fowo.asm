@@ -79,17 +79,23 @@ section .data
     cargo_name db "Cargo.toml", 0
     
     msg_makefile db "Found Makefile. Building...", 10, 0
-    make_cmd db "cd %s && ( [ ! -f .config ] && grep -q 'defconfig' Makefile 2>/dev/null && make defconfig || true ) && make -j$(nproc 2>/dev/null || echo 2)", 0
+    make_cmd db "cd %1$s && ( [ ! -f .config ] && grep -q 'defconfig' Makefile 2>/dev/null && make defconfig || true ) && make $(out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h -E '^(FLAGS|FLAGS_%3$s)=' $out 2>/dev/null | cut -d= -f2- | tr '\n' ' ') -j$(nproc 2>/dev/null || echo 2)", 0
     
     msg_cmake db "Found CMakeLists.txt. Building...", 10, 0
-    cmake_cmd db "cd %s && cmake -B build && cmake --build build", 0
+    cmake_cmd db "cd %1$s && cmake -B build $(out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h -E '^(FLAGS|FLAGS_%3$s)=' $out 2>/dev/null | cut -d= -f2- | tr '\n' ' ') && cmake --build build", 0
     
     msg_meson db "Found meson.build. Building...", 10, 0
-    meson_cmd db "cd %s && meson setup build && meson compile -C build", 0
+    meson_cmd db "cd %1$s && meson setup build $(out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h -E '^(FLAGS|FLAGS_%3$s)=' $out 2>/dev/null | cut -d= -f2- | tr '\n' ' ') && meson compile -C build", 0
     
     cargo_fmt db "%s/Cargo.toml", 0
     msg_cargo db "Found Cargo.toml. Building...", 10, 0
-    cargo_cmd db "cd %s && cargo build --release", 0
+    cargo_cmd db "cd %1$s && cargo build --release $(out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h -E '^(FLAGS|FLAGS_%3$s)=' $out 2>/dev/null | cut -d= -f2- | tr '\n' ' ')", 0
+    
+    autotools_fmt db "%s/configure.ac", 0
+    autotools_fmt2 db "%s/configure", 0
+    msg_autotools db "Found Autotools. Building...", 10, 0
+    autotools_cmd db "cd %1$s && ( [ -f configure ] || ( [ -x autogen.sh ] && ./autogen.sh ) || ( [ -x bootstrap ] && ./bootstrap ) || autoreconf -fi || true ) && ( [ -f Makefile ] || ./configure $(out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h -E '^(FLAGS|FLAGS_%3$s)=' $out 2>/dev/null | cut -d= -f2- | tr '\n' ' ') ) && make -j$(nproc 2>/dev/null || echo 2)", 0
+    autotools_name db "configure", 0
     
     msg_unsupported db "Unsupported build system or no build file found.", 10, 0
     msg_build_fail db "Build failed. Aborting.", 10, 0
@@ -105,7 +111,7 @@ section .data
     
     ; TCZ packaging strings
     tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage/boot", 0
-    make_install_cmd db "cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && make modules_install INSTALL_MOD_PATH=/tmp/fowo_tcz_stage || true ) && make DESTDIR=/tmp/fowo_tcz_stage INSTALL_PATH=/tmp/fowo_tcz_stage/boot install", 0
+    make_install_cmd db "cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && make modules_install INSTALL_MOD_PATH=/tmp/fowo_tcz_stage || true ) && make DESTDIR=/tmp/fowo_tcz_stage INSTALL_PATH=/tmp/fowo_tcz_stage/boot INSTALLKERNEL=none install", 0
     cmake_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage cmake --install build", 0
     meson_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage meson install -C build", 0
     cargo_install_cmd db "mkdir -p /tmp/fowo_tcz_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_tcz_stage/usr/local/bin/; done", 0
@@ -118,7 +124,7 @@ section .data
     msg_tcz_done db "TCZ package built and installed.", 10, 0
     
     msg_normal_install db "Installing to system (Normal Linux)...", 10, 0
-    norm_make_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/boot && cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && sudo make modules_install INSTALL_MOD_PATH=/tmp/fowo_dest_stage || true ) && sudo make DESTDIR=/tmp/fowo_dest_stage INSTALL_PATH=/tmp/fowo_dest_stage/boot install", 0
+    norm_make_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/boot && cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && sudo make modules_install INSTALL_MOD_PATH=/tmp/fowo_dest_stage || true ) && sudo make DESTDIR=/tmp/fowo_dest_stage INSTALL_PATH=/tmp/fowo_dest_stage/boot INSTALLKERNEL=none install", 0
     norm_cmake_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage cmake --install build", 0
     norm_meson_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage meson install -C build", 0
     norm_cargo_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_dest_stage/usr/local/bin/; done", 0
@@ -192,6 +198,7 @@ section .data
     env_fowo_root      db "FOWO_ROOT", 0
     env_tmpdir         db "TMPDIR", 0
     fowo_root_build_fmt db "%s/tmp/fowo_build", 0
+    fowo_root_db_fmt   db "%s/var/lib/fowo/packages", 0
     tmpdir_build_fmt   db "%s/fowo_build", 0
     mkdir_p_cmd_fmt    db "mkdir -p %s", 0
     str_fmt            db "%s", 0
@@ -225,6 +232,7 @@ section .bss
     dir_entry_name resb 256
     timestamp_buf resb 32
     resolved_build_dir resb 4096
+    resolved_db_dir resb 4096
 
 section .text
     global _start
@@ -754,6 +762,33 @@ main:
     cmp eax, 0
     je .do_cargo
     
+.check_autotools:
+    mov rdi, file_buf
+    mov rsi, 512
+    mov rdx, autotools_fmt
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, file_buf
+    mov rsi, 0
+    call access
+    cmp eax, 0
+    je .do_autotools
+
+    mov rdi, file_buf
+    mov rsi, 512
+    mov rdx, autotools_fmt2
+    mov rcx, r13
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, file_buf
+    mov rsi, 0
+    call access
+    cmp eax, 0
+    je .do_autotools
+
 .check_makefile:
     mov rdi, file_buf
     mov rsi, 512
@@ -780,6 +815,8 @@ main:
     mov rsi, 4096
     mov rdx, make_cmd
     mov rcx, r13
+    mov r8, r12
+    mov r9, file_buf
     xor eax, eax
     call snprintf
     
@@ -799,6 +836,8 @@ main:
     mov rsi, 4096
     mov rdx, cmake_cmd
     mov rcx, r13
+    mov r8, r12
+    mov r9, file_buf
     xor eax, eax
     call snprintf
     
@@ -818,6 +857,8 @@ main:
     mov rsi, 4096
     mov rdx, meson_cmd
     mov rcx, r13
+    mov r8, r12
+    mov r9, file_buf
     xor eax, eax
     call snprintf
     
@@ -837,6 +878,29 @@ main:
     mov rsi, 4096
     mov rdx, cargo_cmd
     mov rcx, r13
+    mov r8, r12
+    mov r9, file_buf
+    xor eax, eax
+    call snprintf
+    
+    mov rdi, cmd_buf
+    call system
+    test eax, eax
+    jnz .build_fail
+    jmp .post_build
+
+.do_autotools:
+    mov byte [build_type], 5
+    mov rdi, msg_autotools
+    xor eax, eax
+    call printf
+    
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, autotools_cmd
+    mov rcx, r13
+    mov r8, r12
+    mov r9, file_buf
     xor eax, eax
     call snprintf
     
@@ -850,7 +914,8 @@ main:
     mov rdi, msg_unsupported
     xor eax, eax
     call printf
-    jmp .done
+    mov eax, 1
+    jmp .exit
 
 .build_fail:
     mov rdi, msg_build_fail
@@ -896,6 +961,8 @@ main:
     je .norm_install_meson
     cmp byte [build_type], 4
     je .norm_install_cargo
+    cmp byte [build_type], 5
+    je .norm_install_make
     jmp .done
 
 .norm_install_make:
@@ -943,12 +1010,8 @@ main:
     jmp .track_files
 
 .track_files:
-    cmp byte [debug_mode_g], 1
-    je .tf_debug
-    lea rbx, [pkg_db_prod]
-    jmp .tf_run
-.tf_debug:
-    lea rbx, [pkg_db_dbg]
+    call resolve_db_dir
+    mov rbx, rax
 .tf_run:
     mov rdi, cmd_buf
     mov rsi, 4096
@@ -979,6 +1042,8 @@ main:
     je .tcz_install_meson
     cmp byte [build_type], 4
     je .tcz_install_cargo
+    cmp byte [build_type], 5
+    je .tcz_install_make
     jmp .done
 
 .tcz_install_make:
@@ -1076,7 +1141,8 @@ main:
     mov r12, config_prod
     call resolve_build_dir
     mov r13, rax
-    lea rbx, [pkg_db_prod]
+    call resolve_db_dir
+    mov rbx, rax
     jmp .ua_start
 .ua_debug:
     mov r12, config_dbg
@@ -1170,7 +1236,8 @@ main:
     mov r12, config_prod
     call resolve_build_dir
     mov r13, rax
-    lea rbx, [pkg_db_prod]
+    call resolve_db_dir
+    mov rbx, rax
     jmp .uo_start
 .uo_debug:
     mov r12, config_dbg
@@ -1308,12 +1375,8 @@ save_topology:
     call printf
     
     ; Determine db directory
-    cmp byte [debug_mode_g], 1
-    je .st_debug
-    lea rbx, [pkg_db_prod]
-    jmp .st_mkdir
-.st_debug:
-    lea rbx, [pkg_db_dbg]
+    call resolve_db_dir
+    mov rbx, rax
 
 .st_mkdir:
     ; mkdir -p <db_dir>
@@ -1425,6 +1488,8 @@ save_topology:
     je .st_conf_meson
     cmp byte [build_type], 4
     je .st_conf_cargo
+    cmp byte [build_type], 5
+    je .st_conf_autotools
     mov rdx, makefile_name  ; fallback
     jmp .st_conf_write
 .st_conf_make:
@@ -1438,6 +1503,9 @@ save_topology:
     jmp .st_conf_write
 .st_conf_cargo:
     mov rdx, cargo_name
+    jmp .st_conf_write
+.st_conf_autotools:
+    mov rdx, autotools_name
 .st_conf_write:
     xor eax, eax
     call fprintf
@@ -1958,6 +2026,60 @@ resolve_build_dir:
     call system
 
     mov rax, resolved_build_dir
+    add rsp, 8
+    pop rbx
+    leave
+    ret
+
+; =========================================================================
+; resolve_db_dir() -> rax: pointer to package database directory string
+; =========================================================================
+resolve_db_dir:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    sub rsp, 8
+
+    cmp byte [debug_mode_g], 1
+    je .rdd_debug
+
+    mov rdi, env_fowo_root
+    call getenv
+    test rax, rax
+    jz .rdd_default
+
+    mov rdi, resolved_db_dir
+    mov rsi, 4096
+    mov rdx, fowo_root_db_fmt
+    mov rcx, rax
+    xor eax, eax
+    call snprintf
+
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, mkdir_p_cmd_fmt
+    mov rcx, resolved_db_dir
+    xor eax, eax
+    call snprintf
+
+    mov rdi, cmd_buf
+    call system
+
+    mov rax, resolved_db_dir
+    add rsp, 8
+    pop rbx
+    leave
+    ret
+
+.rdd_default:
+    mov rax, pkg_db_prod
+    add rsp, 8
+    pop rbx
+    leave
+    ret
+
+.rdd_debug:
+    mov rax, pkg_db_dbg
     add rsp, 8
     pop rbx
     leave

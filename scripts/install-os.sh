@@ -184,6 +184,18 @@ if [ "$install_mode" = "1" ]; then
 else
     echo "Installing Master (FeOwOra) minimal base..."
     
+    # Pre-configure Fowo for master build
+    mkdir -p /etc/fowo
+    cat > /etc/fowo/config << 'EOF'
+FLAGS_util-linux=-Dbuild-python=disabled
+ALIAS https://git.savannah.gnu.org/git/patch.git = patch
+ALIAS https://github.com/autotools-mirror/m4.git = m4
+ALIAS https://git.savannah.gnu.org/git/autoconf.git = autoconf
+ALIAS https://git.savannah.gnu.org/git/automake.git = automake
+ALIAS https://git.savannah.gnu.org/git/libtool.git = libtool
+ALIAS https://gitlab.freedesktop.org/pkg-config/pkg-config.git = pkg-config
+EOF
+
     # Define predetermined Fowo packages map
     declare -A FOWO_REPOS=(
         ["kernel"]="https://github.com/torvalds/linux.git"
@@ -203,10 +215,16 @@ else
         ["systemd"]="https://github.com/systemd/systemd.git"
         ["openrc"]="https://github.com/OpenRC/openrc.git"
         ["runit"]="https://github.com/g-pape/runit.git"
+        ["m4"]="https://github.com/autotools-mirror/m4.git"
+        ["autoconf"]="https://git.savannah.gnu.org/git/autoconf.git"
+        ["automake"]="https://git.savannah.gnu.org/git/automake.git"
+        ["patch"]="https://git.savannah.gnu.org/git/patch.git"
+        ["libtool"]="https://git.savannah.gnu.org/git/libtool.git"
+        ["pkg-config"]="https://gitlab.freedesktop.org/pkg-config/pkg-config.git"
     )
 
     # Determine which packages to install
-    SELECTED_PKGS=("kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
+    SELECTED_PKGS=("m4" "autoconf" "automake" "patch" "libtool" "pkg-config" "kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
     
     if [ "$CORE_CHOICE" = "2" ]; then
         SELECTED_PKGS+=("busybox")
@@ -223,6 +241,7 @@ else
     fi
     
     export FOWO_ROOT="$NEWROOT"
+    export PATH="$NEWROOT/usr/local/bin:$NEWROOT/usr/bin:$NEWROOT/bin:$PATH"
     for pkg in "${SELECTED_PKGS[@]}"; do
         echo "Fowo installing $pkg from ${FOWO_REPOS[$pkg]} ..."
         fowo install --no-edit "${FOWO_REPOS[$pkg]}" || {

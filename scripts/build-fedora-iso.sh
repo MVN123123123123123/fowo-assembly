@@ -74,9 +74,16 @@ chmod 755 "$STAGE_DIR/usr/local/bin/fowo"
 cp "$PROJECT_DIR/scripts/install-os.sh" "$STAGE_DIR/usr/local/bin/install-os.sh"
 chmod 755 "$STAGE_DIR/usr/local/bin/install-os.sh"
 ln -sf install-os.sh "$STAGE_DIR/usr/local/bin/install-os"
+
+cp "$PROJECT_DIR/scripts/update-debug.sh" "$STAGE_DIR/usr/local/bin/update-debug.sh"
+chmod 755 "$STAGE_DIR/usr/local/bin/update-debug.sh"
+ln -sf update-debug.sh "$STAGE_DIR/usr/local/bin/update-debug"
+
 mkdir -p "$STAGE_DIR/root"
 cp "$PROJECT_DIR/scripts/install-os.sh" "$STAGE_DIR/root/install-os.sh"
 chmod 755 "$STAGE_DIR/root/install-os.sh"
+cp "$PROJECT_DIR/scripts/update-debug.sh" "$STAGE_DIR/root/update-debug.sh"
+chmod 755 "$STAGE_DIR/root/update-debug.sh"
 
 echo "[3/6] Configuring rootfs..."
 # Set root password to "fowo"
