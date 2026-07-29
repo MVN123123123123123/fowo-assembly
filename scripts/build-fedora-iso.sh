@@ -58,6 +58,7 @@ echo "[1/6] Bootstrapping minimal Fedora rootfs with dnf..."
 dnf --use-host-config --installroot="$STAGE_DIR" --releasever=40 --setopt=install_weak_deps=False install -y \
     systemd bash coreutils kernel util-linux iproute iputils passwd \
     dracut-live dracut-network dbus-broker squashfs-tools \
+    e2fsprogs dosfstools parted xfsprogs \
     gawk grep sed findutils tar \
     grub2-efi-x64 grub2-pc \
     sudo

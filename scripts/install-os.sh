@@ -35,13 +35,41 @@ if [ "$install_mode" = "2" ]; then
 fi
 
 echo ""
+read -p "Do you want to run a disk partitioning/formatting application (cfdisk/fdisk/parted)? (y/N): " run_disk_tool
+if [[ "$run_disk_tool" =~ ^[Yy]$ ]]; then
+    echo "Select disk tool:"
+    echo "1) cfdisk (recommended)"
+    echo "2) fdisk"
+    echo "3) parted"
+    read -p "Option (1-3): " tool_choice
+    read -p "Enter target device (e.g. /dev/sda or /dev/nvme0n1): " DISK_DEV_CHOICE
+    if [ -n "$DISK_DEV_CHOICE" ]; then
+        case "$tool_choice" in
+            1) cfdisk "$DISK_DEV_CHOICE" || true ;;
+            2) fdisk "$DISK_DEV_CHOICE" || true ;;
+            3) parted "$DISK_DEV_CHOICE" || true ;;
+            *) echo "Unknown option, skipping." ;;
+        esac
+    fi
+fi
+
+echo ""
 read -p "Enter Root Partition (e.g. /dev/sda2): " ROOT_PART
 read -p "Enter EFI Partition (e.g. /dev/sda1, leave blank for BIOS): " EFI_PART
 
-read -p "Do you want to format the Root partition with ext4? (y/N): " format_root
+read -p "Do you want to format the Root partition? (y/N): " format_root
 if [[ "$format_root" =~ ^[Yy]$ ]]; then
-    echo "Formatting $ROOT_PART as ext4..."
-    mkfs.ext4 -F "$ROOT_PART"
+    echo "Select filesystem for $ROOT_PART:"
+    echo "1) ext4 (default)"
+    echo "2) xfs"
+    read -p "Filesystem option (1/2): " fs_choice
+    if [ "$fs_choice" = "2" ]; then
+        echo "Formatting $ROOT_PART as xfs..."
+        mkfs.xfs -f "$ROOT_PART"
+    else
+        echo "Formatting $ROOT_PART as ext4..."
+        mkfs.ext4 -F "$ROOT_PART"
+    fi
 fi
 
 if [ -n "$EFI_PART" ]; then
@@ -80,7 +108,7 @@ echo "================================================="
 
 # Common base packages for both to get a bootable system
 # DNF is used here to bootstrap since fowo does not have --installroot
-BASE_PKGS="kernel grub2-pc grub2-efi-x64 util-linux passwd nano iproute iputils"
+BASE_PKGS="kernel grub2-pc grub2-efi-x64 util-linux passwd nano iproute iputils e2fsprogs dosfstools parted xfsprogs"
 
 if [ "$install_mode" = "1" ]; then
     echo "Installing Normal (FedOwOra) base..."
