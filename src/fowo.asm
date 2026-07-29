@@ -79,7 +79,7 @@ section .data
     cargo_name db "Cargo.toml", 0
     
     msg_makefile db "Found Makefile. Building...", 10, 0
-    make_cmd db "cd %s && make", 0
+    make_cmd db "cd %s && ( [ ! -f .config ] && grep -q 'defconfig' Makefile 2>/dev/null && make defconfig || true ) && make -j$(nproc 2>/dev/null || echo 2)", 0
     
     msg_cmake db "Found CMakeLists.txt. Building...", 10, 0
     cmake_cmd db "cd %s && cmake -B build && cmake --build build", 0
@@ -96,15 +96,16 @@ section .data
     msg_clone_fail db "Git clone/pull failed. Aborting.", 10, 0
     
     scan_msg db "Scanning dependencies...", 10, 0
-    makefile_grep db "grep -hE 'pkg-config' %s/Makefile 2>/dev/null | sed -n -E ", 34, "s/.*pkg-config[[:space:]]+(--cflags|--libs|--cflags --libs)[[:space:]]+([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
-    cmake_grep db "grep -hE 'find_package|pkg_check_modules' %s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " >> %s", 0
-    meson_grep db "grep -h 'dependency(' %s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " >> %s", 0
-    cargo_grep db "grep -hA 15 '\[dependencies\]' %s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " >> %s", 0
-    install_deps_cmd db "awk '/^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^SYS / { sys_map[$3]=$2 } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) { if(system(", 34, "test -f /var/lib/fowo/packages/", 34, " pkg ", 34, ".db || test -f /tmp/fowo_packages/", 34, " pkg ", 34, ".db", 34, ")==0) continue; if(sys_map[pkg]!=", 34, 34, ") { pm=sys_map[pkg]; if(pm==", 34, "dnf", 34, ") cmd=", 34, "sudo dnf install -y ", 34, " pkg; else if(pm==", 34, "apt", 34, ") cmd=", 34, "sudo apt-get install -y ", 34, " pkg; else if(pm==", 34, "tce-load", 34, ") cmd=", 34, "tce-load -wi ", 34, " pkg; else cmd=pm ", 34, " install ", 34, " pkg; system(cmd); } else { system(", 34, "if command -v tce-load >/dev/null 2>&1; then tce-load -wi ", 34, " pkg ", 34, "; else %s install ", 34, " pkg ", 34, "; fi", 34, "); } } }' %s", 0
+    makefile_grep db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -hE 'pkg-config' %1$s/Makefile 2>/dev/null | sed -n -E ", 34, "s/.*pkg-config[[:space:]]+(--cflags|--libs|--cflags --libs)[[:space:]]+([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " | sudo tee -a $out >/dev/null 2>&1 || true", 0
+    cmake_grep db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -hE 'find_package|pkg_check_modules' %1$s/CMakeLists.txt 2>/dev/null | sed -n -E ", 34, "s/.*(find_package|pkg_check_modules)[[:space:]]*\([[:space:]]*([a-zA-Z0-9_.-]+).*/# Detected: \2/p", 34, " | sudo tee -a $out >/dev/null 2>&1 || true", 0
+    meson_grep db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -h 'dependency(' %1$s/meson.build 2>/dev/null | sed -n -E ", 34, "s/.*dependency[[:space:]]*\([[:space:]]*'([^']+)'.*/# Detected: \1/p", 34, " | sudo tee -a $out >/dev/null 2>&1 || true", 0
+    cargo_grep db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); grep -hA 15 '\[dependencies\]' %1$s/Cargo.toml 2>/dev/null | grep -v '\[dependencies\]' | sed -n -E ", 34, "s/^([a-zA-Z0-9_.-]+)[[:space:]]*=.*/# Detected: \1/p", 34, " | sudo tee -a $out >/dev/null 2>&1 || true", 0
+    tool_grep db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); for t in bc diff bison flex perl python3 rsync m4 patch gettext; do if grep -qsE ", 34, "(^|[[:space:]]|\b)$t(\b|[[:space:]]|$)", 34, " %1$s/Makefile %1$s/Kbuild 2>/dev/null; then if ! command -v $t >/dev/null 2>&1; then echo ", 34, "# Detected: $t", 34, " | sudo tee -a $out >/dev/null 2>&1; fi; fi; done", 0
+    install_deps_cmd db "out=$( [ -d %2$s ] && echo %2$s/config || echo %2$s ); [ -f $out ] && awk 'BEGIN { map[", 34, "diff", 34, "]=", 34, "diffutils", 34, " } /^ALIAS / { pkg=$2; for(i=4;i<=NF;i++){ val=$i; sub(/,$/,", 34, 34, ",val); map[val]=pkg } } /^SYS / { sys_map[$3]=$2 } /^# Detected:/ { dep=$3; detected[dep]=1 } END { for(dep in detected) { if(map[dep]!=", 34, 34, ") dep=map[dep]; to_install[dep]=1 } for(pkg in to_install) { if(system(", 34, "test -f /var/lib/fowo/packages/", 34, " pkg ", 34, ".db || test -f /tmp/fowo_packages/", 34, " pkg ", 34, ".db", 34, ")==0) continue; if(sys_map[pkg]!=", 34, 34, ") { pm=sys_map[pkg]; if(pm==", 34, "dnf", 34, ") cmd=", 34, "sudo dnf install -y ", 34, " pkg; else if(pm==", 34, "apt", 34, ") cmd=", 34, "sudo apt-get install -y ", 34, " pkg; else if(pm==", 34, "tce-load", 34, ") cmd=", 34, "tce-load -wi ", 34, " pkg; else cmd=pm ", 34, " install ", 34, " pkg; system(cmd); } else { system(", 34, "if command -v tce-load >/dev/null 2>&1; then tce-load -wi ", 34, " pkg ", 34, "; else %1$s install ", 34, " pkg ", 34, "; fi", 34, "); } } }' $out || true", 0
     
     ; TCZ packaging strings
-    tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage", 0
-    make_install_cmd db "cd %s && make DESTDIR=/tmp/fowo_tcz_stage install", 0
+    tcz_stage_clean db "rm -rf /tmp/fowo_tcz_stage && mkdir -p /tmp/fowo_tcz_stage/boot", 0
+    make_install_cmd db "cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && make modules_install INSTALL_MOD_PATH=/tmp/fowo_tcz_stage || true ) && make DESTDIR=/tmp/fowo_tcz_stage INSTALL_PATH=/tmp/fowo_tcz_stage/boot install", 0
     cmake_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage cmake --install build", 0
     meson_install_cmd db "cd %s && DESTDIR=/tmp/fowo_tcz_stage meson install -C build", 0
     cargo_install_cmd db "mkdir -p /tmp/fowo_tcz_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_tcz_stage/usr/local/bin/; done", 0
@@ -117,7 +118,7 @@ section .data
     msg_tcz_done db "TCZ package built and installed.", 10, 0
     
     msg_normal_install db "Installing to system (Normal Linux)...", 10, 0
-    norm_make_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo make DESTDIR=/tmp/fowo_dest_stage install", 0
+    norm_make_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/boot && cd %s && ( grep -q 'modules_install' Makefile 2>/dev/null && sudo make modules_install INSTALL_MOD_PATH=/tmp/fowo_dest_stage || true ) && sudo make DESTDIR=/tmp/fowo_dest_stage INSTALL_PATH=/tmp/fowo_dest_stage/boot install", 0
     norm_cmake_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage cmake --install build", 0
     norm_meson_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage meson install -C build", 0
     norm_cargo_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_dest_stage/usr/local/bin/; done", 0
@@ -617,9 +618,8 @@ main:
     test eax, eax
     jnz .clone_fail
 
-    ; --- Skip scan_deps and editor if --no-edit ---
-    cmp byte [no_edit_mode], 1
-    je .run_deps
+    ; Always run dependency scan
+    jmp .scan_deps
 
 .scan_deps:
     mov rdi, scan_msg
@@ -665,6 +665,19 @@ main:
     call snprintf
     mov rdi, cmd_buf
     call system
+
+    mov rdi, cmd_buf
+    mov rsi, 4096
+    mov rdx, tool_grep
+    mov rcx, r13
+    mov r8, r12
+    xor eax, eax
+    call snprintf
+    mov rdi, cmd_buf
+    call system
+
+    cmp byte [no_edit_mode], 1
+    je .run_deps
 
 .editor:
     mov rdi, editor_env

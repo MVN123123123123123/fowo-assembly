@@ -59,7 +59,7 @@ dnf --use-host-config --installroot="$STAGE_DIR" --releasever=45 --setopt=instal
     systemd bash coreutils kernel util-linux iproute iputils passwd \
     dracut-live dracut-network dbus-broker squashfs-tools \
     e2fsprogs dosfstools parted xfsprogs \
-    gawk grep sed findutils tar \
+    gawk grep sed findutils tar diffutils bc perl rsync kmod \
     grub2-efi-x64 grub2-pc \
     git gcc gcc-c++ make cmake meson ninja-build bison flex \
     elfutils-libelf-devel openssl-devel ncurses-devel pkgconf pcre2-devel \
