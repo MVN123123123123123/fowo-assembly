@@ -61,6 +61,8 @@ dnf --use-host-config --installroot="$STAGE_DIR" --releasever=40 --setopt=instal
     e2fsprogs dosfstools parted xfsprogs \
     gawk grep sed findutils tar \
     grub2-efi-x64 grub2-pc \
+    git gcc gcc-c++ make cmake meson ninja-build bison flex \
+    elfutils-libelf-devel openssl-devel ncurses-devel pkgconf pcre-devel \
     sudo
 
 echo "[2/6] Building and installing fowo..."

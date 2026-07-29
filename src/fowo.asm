@@ -121,7 +121,7 @@ section .data
     norm_cmake_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage cmake --install build", 0
     norm_meson_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage && cd %s && sudo DESTDIR=/tmp/fowo_dest_stage meson install -C build", 0
     norm_cargo_install_cmd db "rm -rf /tmp/fowo_dest_stage && mkdir -p /tmp/fowo_dest_stage/usr/local/bin && for f in %s/target/release/*; do test -f $f && test -x $f && cp $f /tmp/fowo_dest_stage/usr/local/bin/; done", 0
-    track_files_fmt db "cd /tmp/fowo_dest_stage && find . -type f | sed 's|^\./|/|' | sudo tee %s/%s.files >/dev/null && sudo cp -a /tmp/fowo_dest_stage/* / 2>/dev/null || true && sudo rm -rf /tmp/fowo_dest_stage", 0
+    track_files_fmt db "cd /tmp/fowo_dest_stage && find . -type f | sed 's|^\./|/|' | sudo tee %s/%s.files >/dev/null && sudo cp -a /tmp/fowo_dest_stage/* ${FOWO_ROOT:-/} 2>/dev/null || true && sudo rm -rf /tmp/fowo_dest_stage", 0
     
     ; -----------------------------------------------
     ; Topology database strings

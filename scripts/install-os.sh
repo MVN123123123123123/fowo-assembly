@@ -9,10 +9,16 @@ fi
 echo "================================================="
 echo "        Fowo OS Installation Wizard              "
 echo "================================================="
-echo "Choose your installation mode:"
-echo "1) Normal (FedOwOra) - Standard Fedora dnf-based with systemd"
-echo "2) Master (FeOwOra)  - Minimal fowo-based OS"
-read -p "Option (1/2): " install_mode
+while true; do
+    echo "Choose your installation mode:"
+    echo "1) Normal (FedOwOra) - Standard Fedora dnf-based with systemd"
+    echo "2) Master (FeOwOra)  - Minimal fowo-based OS"
+    read -p "Option (1/2): " install_mode
+    case "$install_mode" in
+        1|2) break ;;
+        *) echo "Invalid option '$install_mode'. Please enter 1 or 2." ;;
+    esac
+done
 
 INIT_CHOICE=""
 CORE_CHOICE=""
@@ -20,35 +26,81 @@ CORE_CHOICE=""
 if [ "$install_mode" = "2" ]; then
     echo ""
     echo "Master Mode Configuration:"
-    echo "Choose Init System:"
-    echo "1) systemd"
-    echo "2) openrc"
-    echo "3) runit"
-    echo "4) diy"
-    read -p "Init Option (1-4): " INIT_CHOICE
+    while true; do
+        echo "Choose Init System:"
+        echo "1) systemd"
+        echo "2) openrc"
+        echo "3) runit"
+        echo "4) diy"
+        read -p "Init Option (1-4): " INIT_CHOICE
+        case "$INIT_CHOICE" in
+            1|2|3|4) break ;;
+            *) echo "Invalid option '$INIT_CHOICE'. Please enter 1, 2, 3, or 4." ;;
+        esac
+    done
 
     echo ""
-    echo "Choose core utilities:"
-    echo "1) coreutils + bash"
-    echo "2) busybox"
-    read -p "Core Option (1/2): " CORE_CHOICE
+    while true; do
+        echo "Choose core utilities:"
+        echo "1) coreutils + bash"
+        echo "2) busybox"
+        read -p "Core Option (1/2): " CORE_CHOICE
+        case "$CORE_CHOICE" in
+            1|2) break ;;
+            *) echo "Invalid option '$CORE_CHOICE'. Please enter 1 or 2." ;;
+        esac
+    done
 fi
 
 echo ""
 read -p "Do you want to run a disk partitioning/formatting application (cfdisk/fdisk/parted)? (y/N): " run_disk_tool
 if [[ "$run_disk_tool" =~ ^[Yy]$ ]]; then
-    echo "Select disk tool:"
-    echo "1) cfdisk (recommended)"
-    echo "2) fdisk"
-    echo "3) parted"
-    read -p "Option (1-3): " tool_choice
-    read -p "Enter target device (e.g. /dev/sda or /dev/nvme0n1): " DISK_DEV_CHOICE
-    if [ -n "$DISK_DEV_CHOICE" ]; then
+    while true; do
+        echo ""
+        echo "Select disk tool:"
+        echo "1) cfdisk (recommended)"
+        echo "2) fdisk"
+        echo "3) parted"
+        echo "4) Skip / Cancel"
+        read -p "Option (1-4): " tool_choice
         case "$tool_choice" in
-            1) cfdisk "$DISK_DEV_CHOICE" || true ;;
-            2) fdisk "$DISK_DEV_CHOICE" || true ;;
-            3) parted "$DISK_DEV_CHOICE" || true ;;
-            *) echo "Unknown option, skipping." ;;
+            1|2|3|4) break ;;
+            *) echo "Invalid option '$tool_choice'. Please enter 1, 2, 3, or 4." ;;
+        esac
+    done
+
+    if [ "$tool_choice" != "4" ]; then
+        read -p "Enter target device (e.g. /dev/sda or /dev/nvme0n1, leave blank for default): " DISK_DEV_CHOICE
+        case "$tool_choice" in
+            1)
+                if [ -n "$DISK_DEV_CHOICE" ]; then
+                    cfdisk "$DISK_DEV_CHOICE" || true
+                else
+                    cfdisk || true
+                fi
+                ;;
+            2)
+                if [ -n "$DISK_DEV_CHOICE" ]; then
+                    fdisk "$DISK_DEV_CHOICE" || true
+                else
+                    fdisk -l || true
+                    read -p "Enter target device for fdisk (e.g. /dev/sda): " FDISK_DEV
+                    if [ -n "$FDISK_DEV" ]; then
+                        fdisk "$FDISK_DEV" || true
+                    fi
+                fi
+                ;;
+            3)
+                if [ -n "$DISK_DEV_CHOICE" ]; then
+                    parted "$DISK_DEV_CHOICE" || true
+                else
+                    parted -l || true
+                    read -p "Enter target device for parted (e.g. /dev/sda): " PARTED_DEV
+                    if [ -n "$PARTED_DEV" ]; then
+                        parted "$PARTED_DEV" || true
+                    fi
+                fi
+                ;;
         esac
     fi
 fi
@@ -59,17 +111,27 @@ read -p "Enter EFI Partition (e.g. /dev/sda1, leave blank for BIOS): " EFI_PART
 
 read -p "Do you want to format the Root partition? (y/N): " format_root
 if [[ "$format_root" =~ ^[Yy]$ ]]; then
-    echo "Select filesystem for $ROOT_PART:"
-    echo "1) ext4 (default)"
-    echo "2) xfs"
-    read -p "Filesystem option (1/2): " fs_choice
-    if [ "$fs_choice" = "2" ]; then
-        echo "Formatting $ROOT_PART as xfs..."
-        mkfs.xfs -f "$ROOT_PART"
-    else
-        echo "Formatting $ROOT_PART as ext4..."
-        mkfs.ext4 -F "$ROOT_PART"
-    fi
+    while true; do
+        echo "Select filesystem for $ROOT_PART:"
+        echo "1) ext4 (default)"
+        echo "2) xfs"
+        read -p "Filesystem option (1/2): " fs_choice
+        case "$fs_choice" in
+            1)
+                echo "Formatting $ROOT_PART as ext4..."
+                mkfs.ext4 -F "$ROOT_PART"
+                break
+                ;;
+            2)
+                echo "Formatting $ROOT_PART as xfs..."
+                mkfs.xfs -f "$ROOT_PART"
+                break
+                ;;
+            *)
+                echo "Invalid option '$fs_choice'. Please enter 1 or 2."
+                ;;
+        esac
+    done
 fi
 
 if [ -n "$EFI_PART" ]; then
@@ -122,38 +184,55 @@ if [ "$install_mode" = "1" ]; then
 else
     echo "Installing Master (FeOwOra) minimal base..."
     
-    # We must install build tools so fowo can build packages in the chroot
-    FOWO_DEPS="git gcc make cmake pcre-devel sudo"
+    # Define predetermined Fowo packages map
+    declare -A FOWO_REPOS=(
+        ["kernel"]="https://github.com/torvalds/linux.git"
+        ["grub2"]="https://git.savannah.gnu.org/git/grub.git"
+        ["util-linux"]="https://github.com/util-linux/util-linux.git"
+        ["passwd"]="https://github.com/shadow-maint/shadow.git"
+        ["nano"]="https://git.savannah.gnu.org/git/nano.git"
+        ["iproute"]="https://git.kernel.org/pub/scm/network/iproute2/iproute2.git"
+        ["iputils"]="https://github.com/iputils/iputils.git"
+        ["e2fsprogs"]="https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git"
+        ["dosfstools"]="https://github.com/dosfstools/dosfstools.git"
+        ["parted"]="https://git.savannah.gnu.org/git/parted.git"
+        ["xfsprogs"]="https://git.kernel.org/pub/scm/fs/xfs/xfsprogs-dev.git"
+        ["bash"]="https://git.savannah.gnu.org/git/bash.git"
+        ["coreutils"]="https://git.savannah.gnu.org/git/coreutils.git"
+        ["busybox"]="https://git.busybox.net/busybox.git"
+        ["systemd"]="https://github.com/systemd/systemd.git"
+        ["openrc"]="https://github.com/OpenRC/openrc.git"
+        ["runit"]="https://github.com/g-pape/runit.git"
+    )
+
+    # Determine which packages to install
+    SELECTED_PKGS=("kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
     
     if [ "$CORE_CHOICE" = "2" ]; then
-        CORE_PKGS="busybox"
+        SELECTED_PKGS+=("busybox")
     else
-        CORE_PKGS="coreutils bash"
+        SELECTED_PKGS+=("bash" "coreutils")
     fi
     
     if [ "$INIT_CHOICE" = "1" ]; then
-        INIT_PKGS="systemd"
-    else
-        INIT_PKGS=""
+        SELECTED_PKGS+=("systemd")
+    elif [ "$INIT_CHOICE" = "2" ]; then
+        SELECTED_PKGS+=("openrc")
+    elif [ "$INIT_CHOICE" = "3" ]; then
+        SELECTED_PKGS+=("runit")
     fi
     
-    # Install minimal packages using dnf first
-    dnf --use-host-config --installroot="$NEWROOT" --releasever=40 --setopt=install_weak_deps=False install -y \
-        $BASE_PKGS $CORE_PKGS $INIT_PKGS $FOWO_DEPS dnf
-
-    # Prepare busybox if chosen
-    if [ "$CORE_CHOICE" = "2" ]; then
-        chroot "$NEWROOT" /bin/sh -c "busybox --install -s /bin || true"
-        if [ ! -e "$NEWROOT/bin/bash" ]; then
-            ln -sf /bin/sh "$NEWROOT/bin/bash"
-        fi
-    fi
-
-    # Copy fowo to the new system
-    mkdir -p "$NEWROOT/usr/local/bin"
-    cp /usr/local/bin/fowo "$NEWROOT/usr/local/bin/"
+    export FOWO_ROOT="$NEWROOT"
+    for pkg in "${SELECTED_PKGS[@]}"; do
+        echo "Fowo installing $pkg from ${FOWO_REPOS[$pkg]} ..."
+        fowo install --no-edit "${FOWO_REPOS[$pkg]}" || {
+            echo "Error: Failed to install $pkg via fowo"
+            exit 1
+        }
+    done
     
     echo "Setting up FeOwOra identity..."
+    mkdir -p "$NEWROOT/etc"
     cat > "$NEWROOT/etc/os-release" << 'EOF'
 NAME="FeOwOra"
 PRETTY_NAME="FeOwOra Linux"
@@ -163,40 +242,16 @@ VERSION_ID="1.0"
 HOME_URL="https://github.com/FeOwOra"
 EOF
 
-    # Prepare for fowo install
-    echo "Mounting virtual filesystems for chroot..."
-    mount -o bind /dev "$NEWROOT/dev"
-    mount -t proc proc "$NEWROOT/proc"
-    mount -t sysfs sysfs "$NEWROOT/sys"
-    mount -t tmpfs tmpfs "$NEWROOT/run"
-    
-    echo "Generating predetermined fowo config from host topology..."
-    mkdir -p "$NEWROOT/etc"
+    # Copy Fowo databases to the target so Fowo knows what is installed
     mkdir -p "$NEWROOT/var/lib/fowo/packages"
-    echo "# Predetermined dependencies from host" > "$NEWROOT/etc/fowo"
     if [ -d "/var/lib/fowo/packages" ]; then
-        for db in /var/lib/fowo/packages/*.db; do
-            if [ -f "$db" ]; then
-                pkg=$(basename "$db" .db)
-                url=$(sed -n 's/^URL=//p' "$db")
-                if [ -n "$url" ]; then
-                    echo "ALIAS $url = $pkg" >> "$NEWROOT/etc/fowo"
-                fi
-                cp "$db" "$NEWROOT/var/lib/fowo/packages/"
-                sed -i 's/^COMMIT=.*/COMMIT=?/' "$NEWROOT/var/lib/fowo/packages/${pkg}.db"
-            fi
-        done
+        cp -a /var/lib/fowo/packages/* "$NEWROOT/var/lib/fowo/packages/" 2>/dev/null || true
     fi
-    
-    echo "Installing Init System via Fowo..."
-    if [ "$INIT_CHOICE" = "2" ]; then
-        echo "Installing OpenRC..."
-        chroot "$NEWROOT" /bin/sh -c "fowo install --no-edit https://github.com/OpenRC/openrc"
-    elif [ "$INIT_CHOICE" = "3" ]; then
-        echo "Installing runit..."
-        chroot "$NEWROOT" /bin/sh -c "fowo install --no-edit https://github.com/g-pape/runit" # Placeholder for runit git source
-    elif [ "$INIT_CHOICE" = "4" ]; then
+
+    # DIY Init fallback (doesn't need repo)
+    if [ "$INIT_CHOICE" = "4" ]; then
         echo "Setting up DIY Init..."
+        mkdir -p "$NEWROOT/sbin"
         cat > "$NEWROOT/sbin/init" << 'EOF'
 #!/bin/sh
 mount -t proc proc /proc
@@ -207,14 +262,6 @@ exec /bin/sh
 EOF
         chmod +x "$NEWROOT/sbin/init"
     fi
-
-    echo "Removing DNF from Master OS..."
-    chroot "$NEWROOT" /bin/sh -c "rpm -e --nodeps dnf dnf-data libdnf yum || true"
-    
-    umount "$NEWROOT/run"
-    umount "$NEWROOT/sys"
-    umount "$NEWROOT/proc"
-    umount "$NEWROOT/dev"
 fi
 
 echo "================================================="
@@ -230,6 +277,13 @@ if [ -n "$EFI_PART" ]; then
     echo "UUID=$EFI_UUID /boot/efi vfat umask=0077,shortname=winnt 0 2" >> "$NEWROOT/etc/fstab"
 fi
 
+# Mount virtual filesystems for chroot
+echo "Mounting virtual filesystems for chroot..."
+mount -o bind /dev "$NEWROOT/dev"
+mount -t proc proc "$NEWROOT/proc"
+mount -t sysfs sysfs "$NEWROOT/sys"
+mount -t tmpfs tmpfs "$NEWROOT/run"
+
 # Set root password
 echo "Set password for root:"
 chroot "$NEWROOT" passwd root
@@ -244,9 +298,6 @@ fi
 
 # Install Bootloader
 echo "Installing GRUB bootloader..."
-mount -o bind /dev "$NEWROOT/dev"
-mount -t proc proc "$NEWROOT/proc"
-mount -t sysfs sysfs "$NEWROOT/sys"
 
 if [ -n "$EFI_PART" ]; then
     chroot "$NEWROOT" grub2-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=FOWO
