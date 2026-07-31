@@ -184,18 +184,6 @@ if [ "$install_mode" = "1" ]; then
 else
     echo "Installing Master (FeOwOra) minimal base..."
     
-    # Pre-configure Fowo for master build
-    mkdir -p /etc/fowo
-    cat > /etc/fowo/config << 'EOF'
-FLAGS_util-linux=-Dbuild-python=disabled
-ALIAS https://git.savannah.gnu.org/git/patch.git = patch
-ALIAS https://github.com/autotools-mirror/m4.git = m4
-ALIAS https://git.savannah.gnu.org/git/autoconf.git = autoconf
-ALIAS https://git.savannah.gnu.org/git/automake.git = automake
-ALIAS https://git.savannah.gnu.org/git/libtool.git = libtool
-ALIAS https://gitlab.freedesktop.org/pkg-config/pkg-config.git = pkg-config
-EOF
-
     # Define predetermined Fowo packages map
     declare -A FOWO_REPOS=(
         ["kernel"]="https://github.com/torvalds/linux.git"
@@ -222,6 +210,123 @@ EOF
         ["libtool"]="https://git.savannah.gnu.org/git/libtool.git"
         ["pkg-config"]="https://gitlab.freedesktop.org/pkg-config/pkg-config.git"
     )
+
+    # ── Mirror Speed Ranking ──────────────────────────────────────
+    # GitHub mirrors for potentially slow upstream hosts
+    declare -A GITHUB_MIRRORS=(
+        ["https://git.savannah.gnu.org/git/autoconf.git"]="https://github.com/autotools-mirror/autoconf.git"
+        ["https://git.savannah.gnu.org/git/automake.git"]="https://github.com/autotools-mirror/automake.git"
+        ["https://git.savannah.gnu.org/git/libtool.git"]="https://github.com/autotools-mirror/libtool.git"
+        ["https://git.savannah.gnu.org/git/patch.git"]="https://github.com/autotools-mirror/patch.git"
+        ["https://git.savannah.gnu.org/git/coreutils.git"]="https://github.com/coreutils/coreutils.git"
+        ["https://git.savannah.gnu.org/git/bash.git"]="https://github.com/bminor/bash.git"
+        ["https://git.savannah.gnu.org/git/nano.git"]="https://github.com/bminor/nano.git"
+        ["https://git.savannah.gnu.org/git/grub.git"]="https://github.com/rhboot/grub2.git"
+        ["https://git.savannah.gnu.org/git/parted.git"]="https://github.com/bminor/parted.git"
+        ["https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git"]="https://github.com/tytso/e2fsprogs.git"
+        ["https://git.busybox.net/busybox.git"]="https://github.com/mirror/busybox.git"
+    )
+
+    echo ""
+    echo "Ranking source mirror speeds..."
+
+    # Collect one representative URL per unique host
+    declare -A _host_url
+    for _pkg in "${!FOWO_REPOS[@]}"; do
+        _url="${FOWO_REPOS[$_pkg]}"
+        _host="${_url#https://}"
+        _host="${_host%%/*}"
+        [[ -n "${_host_url[$_host]+x}" ]] || _host_url[$_host]="$_url"
+    done
+    # Ensure github.com is always tested (it's the mirror target)
+    [[ -n "${_host_url[github.com]+x}" ]] || \
+        _host_url["github.com"]="https://github.com/autotools-mirror/m4.git"
+
+    # Test all hosts in parallel via git ls-remote
+    declare -A HOST_SPEED
+    _mdir=$(mktemp -d)
+    for _host in "${!_host_url[@]}"; do
+        _shost="${_host//[\/.]/_}"
+        (
+            _b=$(date +%s)
+            if timeout 8 git ls-remote "${_host_url[$_host]}" HEAD >/dev/null 2>&1; then
+                _a=$(date +%s)
+                echo $((_a - _b))
+            else
+                echo 999
+            fi
+        ) > "$_mdir/$_shost" 2>/dev/null &
+    done
+    wait
+
+    for _host in "${!_host_url[@]}"; do
+        _shost="${_host//[\/.]/_}"
+        HOST_SPEED[$_host]=$(cat "$_mdir/$_shost" 2>/dev/null || echo 999)
+    done
+    rm -rf "$_mdir"
+
+    # Display rankings sorted by speed
+    echo ""
+    echo "  Mirror Speed Rankings:"
+    echo "  ================================================"
+    for _host in "${!HOST_SPEED[@]}"; do
+        _speed=${HOST_SPEED[$_host]}
+        if [ "$_speed" -ge 999 ]; then
+            _tag="TIMEOUT"
+        elif [ "$_speed" -le 1 ]; then
+            _tag="FAST"
+        elif [ "$_speed" -le 3 ]; then
+            _tag="OK"
+        else
+            _tag="SLOW"
+        fi
+        echo "${_speed} ${_host} ${_tag}"
+    done | sort -n | while read _s _h _t; do
+        if [ "$_s" -ge 999 ]; then
+            printf "  %-42s [%s]\n" "$_h" "$_t"
+        else
+            printf "  %-42s %ss [%s]\n" "$_h" "$_s" "$_t"
+        fi
+    done
+    echo "  ================================================"
+    echo ""
+
+    # Auto-switch slow hosts (>= 3s response) to GitHub mirrors
+    _switched=0
+    for _pkg in "${!FOWO_REPOS[@]}"; do
+        _url="${FOWO_REPOS[$_pkg]}"
+        _host="${_url#https://}"
+        _host="${_host%%/*}"
+
+        if [[ ${HOST_SPEED[$_host]:-0} -ge 3 ]] && [[ -n "${GITHUB_MIRRORS[$_url]+x}" ]]; then
+            _mirror="${GITHUB_MIRRORS[$_url]}"
+            _mhost="${_mirror#https://}"
+            _mhost="${_mhost%%/*}"
+            echo "  -> $_pkg: $_host -> $_mhost"
+            FOWO_REPOS[$_pkg]="$_mirror"
+            _switched=1
+        fi
+    done
+
+    if [[ $_switched -eq 1 ]]; then
+        echo ""
+        echo "  Switched slow repos to faster GitHub mirrors."
+    else
+        echo "  All mirrors are fast enough, no switching needed."
+    fi
+    echo ""
+
+    # Pre-configure Fowo for master build (uses final mirror-selected URLs)
+    mkdir -p /etc/fowo
+    cat > /etc/fowo/config << EOF
+FLAGS_util-linux=-Dbuild-python=disabled
+ALIAS ${FOWO_REPOS[patch]} = patch
+ALIAS ${FOWO_REPOS[m4]} = m4
+ALIAS ${FOWO_REPOS[autoconf]} = autoconf
+ALIAS ${FOWO_REPOS[automake]} = automake
+ALIAS ${FOWO_REPOS[libtool]} = libtool
+ALIAS ${FOWO_REPOS[pkg-config]} = pkg-config
+EOF
 
     # Determine which packages to install
     SELECTED_PKGS=("patch" "m4" "autoconf" "automake" "libtool" "pkg-config" "kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
