@@ -6,6 +6,11 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+LOGFILE="/var/log/install-os.log"
+mkdir -p /var/log
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Fowo OS Installation..."
+
 echo "================================================="
 echo "        Fowo OS Installation Wizard              "
 echo "================================================="
@@ -147,6 +152,11 @@ mkdir -p "$NEWROOT"
 
 cleanup_mounts() {
     echo "Cleaning up mounts..."
+    if [ -d "$NEWROOT" ] && mountpoint -q "$NEWROOT" 2>/dev/null; then
+        mkdir -p "$NEWROOT/var/log" 2>/dev/null || true
+        cp -f "$LOGFILE" "$NEWROOT/var/log/install-os.log" 2>/dev/null || true
+        echo "Installation log saved to $NEWROOT/var/log/install-os.log"
+    fi
     umount "$NEWROOT/run" 2>/dev/null || true
     umount "$NEWROOT/sys" 2>/dev/null || true
     umount "$NEWROOT/proc" 2>/dev/null || true
@@ -217,7 +227,7 @@ else
         ["https://git.savannah.gnu.org/git/autoconf.git"]="https://github.com/autotools-mirror/autoconf.git"
         ["https://git.savannah.gnu.org/git/automake.git"]="https://github.com/autotools-mirror/automake.git"
         ["https://git.savannah.gnu.org/git/libtool.git"]="https://github.com/autotools-mirror/libtool.git"
-        ["https://git.savannah.gnu.org/git/patch.git"]="https://github.com/autotools-mirror/patch.git"
+
         ["https://git.savannah.gnu.org/git/coreutils.git"]="https://github.com/coreutils/coreutils.git"
         ["https://git.savannah.gnu.org/git/bash.git"]="https://github.com/bminor/bash.git"
         ["https://git.savannah.gnu.org/git/nano.git"]="https://github.com/bminor/nano.git"
@@ -444,6 +454,10 @@ chroot "$NEWROOT" grub2-mkconfig -o /boot/grub2/grub.cfg
 umount "$NEWROOT/sys"
 umount "$NEWROOT/proc"
 umount "$NEWROOT/dev"
+
+echo "Saving installation log to installed system..."
+mkdir -p "$NEWROOT/var/log" 2>/dev/null || true
+cp -f "$LOGFILE" "$NEWROOT/var/log/install-os.log" 2>/dev/null || true
 
 echo "Unmounting partitions..."
 if [ -n "$EFI_PART" ]; then
