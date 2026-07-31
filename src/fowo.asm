@@ -65,7 +65,7 @@ section .data
     err_cfg db "Failed to open config file %s. Are you root?", 10, 0
     
     cmd_fmt db "%s %s", 0
-    clone_fmt db "D='%s'; if [ ! -d $D/.git ]; then rm -rf $D && git clone --depth 1 --recursive %s $D; else echo 'Pulling latest...'; cd $D && git pull; fi", 0
+    clone_fmt db "D='%s'; U='%s'; G=/tmp/fowo_gc_$$; touch $G; export GIT_CONFIG_GLOBAL=$G; git config --file $G protocol.file.allow always; if [ ! -d $D/.git ]; then rm -rf $D && git clone --depth 1 $U $D && cd $D && if [ -f .gitmodules ]; then mkdir -p /var/cache/fowo/git && git config --file .gitmodules --get-regexp url | awk '{print $2}' | while read -r u; do case $u in http*|git*) C=/var/cache/fowo/git/$(echo -n $u | md5sum | cut -d' ' -f1); if [ ! -d $C ]; then git clone --bare $u $C.tmp && mv $C.tmp $C || rm -rf $C.tmp; fi; git config --file $G url.file://$C.insteadOf $u ;; esac; done && git submodule update --init --recursive; fi; else echo 'Pulling latest...'; cd $D && git pull; fi; rm -f $G", 0
     build_dir_fmt db "%s/%s", 0
     clone_msg db "Cloning %s to %s...", 10, 0
     
