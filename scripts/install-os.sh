@@ -224,7 +224,7 @@ EOF
     )
 
     # Determine which packages to install
-    SELECTED_PKGS=("m4" "autoconf" "automake" "patch" "libtool" "pkg-config" "kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
+    SELECTED_PKGS=("patch" "m4" "autoconf" "automake" "libtool" "pkg-config" "kernel" "grub2" "util-linux" "passwd" "nano" "iproute" "iputils" "e2fsprogs" "dosfstools" "parted" "xfsprogs")
     
     if [ "$CORE_CHOICE" = "2" ]; then
         SELECTED_PKGS+=("busybox")
