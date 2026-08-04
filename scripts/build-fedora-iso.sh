@@ -112,14 +112,15 @@ curl -L -o "$STAGE_DIR/usr/local/bin/haruka_installer" "https://github.com/MVN12
     echo "Warning: Failed to download haruka_installer. It might not be built or published yet."
 }
 chmod 755 "$STAGE_DIR/usr/local/bin/haruka_installer" 2>/dev/null || true
+ln -sf haruka_installer "$STAGE_DIR/usr/local/bin/install-os"
 
 cp "$PROJECT_DIR/scripts/update-debug.sh" "$STAGE_DIR/usr/local/bin/update-debug.sh"
 chmod 755 "$STAGE_DIR/usr/local/bin/update-debug.sh"
 ln -sf update-debug.sh "$STAGE_DIR/usr/local/bin/update-debug"
 
 mkdir -p "$STAGE_DIR/root"
-cp "$PROJECT_DIR/scripts/install-os.sh" "$STAGE_DIR/root/install-os.sh"
-chmod 755 "$STAGE_DIR/root/install-os.sh"
+cp "$STAGE_DIR/usr/local/bin/haruka_installer" "$STAGE_DIR/root/install-os" 2>/dev/null || true
+chmod 755 "$STAGE_DIR/root/install-os" 2>/dev/null || true
 cp "$PROJECT_DIR/scripts/update-debug.sh" "$STAGE_DIR/root/update-debug.sh"
 chmod 755 "$STAGE_DIR/root/update-debug.sh"
 
