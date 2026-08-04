@@ -99,7 +99,7 @@ dnf --use-host-config --installroot="$STAGE_DIR" --releasever=45 --setopt=instal
     git gcc gcc-c++ make cmake meson ninja-build bison flex \
     autoconf automake libtool m4 patch \
     elfutils-libelf-devel openssl-devel ncurses-devel pkgconf pcre2-devel \
-    sudo nc fbida
+    sudo nc fbida dnf5
 
 echo "[2/6] Building and installing fowo..."
 make -C "$PROJECT_DIR" all
