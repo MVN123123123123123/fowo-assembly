@@ -2,8 +2,43 @@
 set -e
 umask 022
 
+USE_CONTAINER=0
+while getopts "c" opt; do
+    case "$opt" in
+        c)
+            USE_CONTAINER=1
+            ;;
+        *)
+            echo "Usage: $0 [-c]"
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [ "$USE_CONTAINER" -eq 1 ]; then
+    echo "================================================="
+    echo "   Running build in a Fedora container...        "
+    echo "================================================="
+    if command -v podman &>/dev/null; then
+        CONTAINER_ENGINE="podman"
+    elif command -v docker &>/dev/null; then
+        CONTAINER_ENGINE="docker"
+    else
+        echo "Error: Neither podman nor docker found."
+        exit 1
+    fi
+    
+    exec $CONTAINER_ENGINE run --rm --privileged \
+        -v "$PROJECT_DIR:/workspace" \
+        -w /workspace \
+        fedora:latest \
+        /bin/bash -c "dnf install -y dnf squashfs-tools grub2-tools grub2-tools-extra grub2-efi-x64-modules grub2-pc-modules xorriso gcc nasm make && /workspace/scripts/build-fedora-iso.sh"
+fi
+
 BUILD_DIR="$PROJECT_DIR/build"
 STAGE_DIR="/tmp/fowo_fedora_stage"
 ISO_STAGE="/tmp/fowo_fedora_iso_stage"
@@ -162,8 +197,8 @@ trap cleanup EXIT
 # Normalize file permissions before squashing
 echo "Sanitizing file permissions..."
 chmod 755 "$STAGE_DIR"
-chmod -R go-w "$STAGE_DIR"
-find "$STAGE_DIR" -name "*.conf" -exec chmod 644 {} +
+chmod -R go-w "$STAGE_DIR" 2>/dev/null || true
+find "$STAGE_DIR" -type f -name "*.conf" -exec chmod 644 {} + 2>/dev/null || true
 find "$STAGE_DIR/usr/lib/systemd" -type f \( -name "*.service" -o -name "*.target" -o -name "*.socket" -o -name "*.timer" -o -name "*.mount" \) -exec chmod 644 {} + 2>/dev/null || true
 
 mksquashfs "$STAGE_DIR" "$ISO_STAGE/LiveOS/squashfs.img" -comp xz
