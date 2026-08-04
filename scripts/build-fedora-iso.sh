@@ -36,7 +36,7 @@ if [ "$USE_CONTAINER" -eq 1 ]; then
         -v "$PROJECT_DIR:/workspace" \
         -w /workspace \
         fedora:latest \
-        /bin/bash -c "dnf install -y dnf squashfs-tools grub2-tools grub2-tools-extra grub2-efi-x64-modules grub2-pc-modules xorriso gcc nasm make && /workspace/scripts/build-fedora-iso.sh"
+        /bin/bash -c "dnf install -y dnf squashfs-tools grub2-tools grub2-tools-extra grub2-efi-x64-modules grub2-pc-modules xorriso gcc nasm make curl && /workspace/scripts/build-fedora-iso.sh"
 fi
 
 BUILD_DIR="$PROJECT_DIR/build"
@@ -54,9 +54,9 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-if ! command -v dnf &>/dev/null || ! command -v mksquashfs &>/dev/null || ! command -v grub2-mkrescue &>/dev/null; then
+if ! command -v dnf &>/dev/null || ! command -v mksquashfs &>/dev/null || ! command -v grub2-mkrescue &>/dev/null || ! command -v curl &>/dev/null; then
     echo "Error: Required tools not found."
-    echo "Please install: dnf, squashfs-tools, grub2-tools, grub2-efi-x64-modules, xorriso"
+    echo "Please install: dnf, squashfs-tools, grub2-tools, grub2-efi-x64-modules, xorriso, curl"
     exit 1
 fi
 
@@ -107,9 +107,11 @@ mkdir -p "$STAGE_DIR/usr/local/bin"
 cp "$PROJECT_DIR/build/fowo" "$STAGE_DIR/usr/local/bin/"
 chmod 755 "$STAGE_DIR/usr/local/bin/fowo"
 
-cp "$PROJECT_DIR/scripts/install-os.sh" "$STAGE_DIR/usr/local/bin/install-os.sh"
-chmod 755 "$STAGE_DIR/usr/local/bin/install-os.sh"
-ln -sf install-os.sh "$STAGE_DIR/usr/local/bin/install-os"
+echo "Downloading haruka_installer from latest release..."
+curl -L -o "$STAGE_DIR/usr/local/bin/haruka_installer" "https://github.com/MVN123123123123123/funny-random-fork/releases/download/latest/haruka_installer" || {
+    echo "Warning: Failed to download haruka_installer. It might not be built or published yet."
+}
+chmod 755 "$STAGE_DIR/usr/local/bin/haruka_installer" 2>/dev/null || true
 
 cp "$PROJECT_DIR/scripts/update-debug.sh" "$STAGE_DIR/usr/local/bin/update-debug.sh"
 chmod 755 "$STAGE_DIR/usr/local/bin/update-debug.sh"
