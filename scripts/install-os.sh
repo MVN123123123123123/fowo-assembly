@@ -17,7 +17,7 @@ echo "================================================="
 while true; do
     echo "Choose your installation mode:"
     echo "1) Normal (FedOwOra) - Standard Fedora dnf-based with systemd"
-    echo "2) Master (FeOwOra)  - Minimal fowo-based OS"
+    echo "2) Master (FedOwOra)  - Minimal fowo-based OS"
     read -p "Option (1/2): " install_mode
     case "$install_mode" in
         1|2) break ;;
@@ -371,12 +371,12 @@ EOF
     echo "Setting up FeOwOra identity..."
     mkdir -p "$NEWROOT/etc"
     cat > "$NEWROOT/etc/os-release" << 'EOF'
-NAME="FeOwOra"
-PRETTY_NAME="FeOwOra Linux"
-ID=feowora
+NAME="FedOwOra"
+PRETTY_NAME="FedOwOra Linux"
+ID=fedowora
 ID_LIKE=fedora
 VERSION_ID="1.0"
-HOME_URL="https://github.com/FeOwOra"
+HOME_URL="https://github.com/MVN123123123123123/fowo-assembly"
 EOF
 
     # Copy Fowo databases to the target so Fowo knows what is installed

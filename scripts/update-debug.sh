@@ -24,7 +24,7 @@ else
     SCRIPT_DIR="/usr/local/bin"
 fi
 
-echo "[1/3] Cloning latest source..."
+echo "[1/4] Cloning latest source..."
 rm -rf "$WORK_DIR"
 if git clone --depth 1 "$REPO_URL" "$WORK_DIR"; then
     echo "  Source cloned successfully."
@@ -40,7 +40,7 @@ else
     exit 0
 fi
 
-echo "[2/3] Building fowo from source..."
+echo "[2/4] Building fowo from source..."
 if command -v nasm >/dev/null 2>&1 && command -v gcc >/dev/null 2>&1; then
     if make -C "$WORK_DIR" all; then
         echo "  Build successful."
@@ -57,7 +57,7 @@ else
     chmod +x /usr/local/bin/fowo 2>/dev/null || true
 fi
 
-echo "[3/3] Updating scripts..."
+echo "[3/4] Updating scripts..."
 for script in install-os.sh update-debug.sh; do
     if [ -f "$WORK_DIR/scripts/$script" ]; then
         cp "$WORK_DIR/scripts/$script" "$SCRIPT_DIR/$script"
@@ -67,7 +67,12 @@ for script in install-os.sh update-debug.sh; do
         [ -f "/root/$script" ] && cp "$WORK_DIR/scripts/$script" "/root/$script" && chmod +x "/root/$script"
     fi
 done
-
+echo "[4/4]Downloading haruka_installer from latest release..."
+curl -L -o "$SCRIPT_DIR/haruka_installer" "https://github.com/MVN123123123123123/funny-random-fork/releases/download/latest/haruka_installer" || {
+    echo "Warning: Failed to download haruka_installer. It might not be built or published yet."
+}
+chmod 755 "$SCRIPT_DIR/haruka_installer" 2>/dev/null || true
+ln -sf haruka_installer "$SCRIPT_DIR/install-os"
 # Clean up
 rm -rf "$WORK_DIR"
 

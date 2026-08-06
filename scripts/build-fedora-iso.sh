@@ -99,7 +99,8 @@ dnf --use-host-config --installroot="$STAGE_DIR" --releasever=45 --setopt=instal
     git gcc gcc-c++ make cmake meson ninja-build bison flex \
     autoconf automake libtool m4 patch \
     elfutils-libelf-devel openssl-devel ncurses-devel pkgconf pcre2-devel \
-    sudo nc fbida dnf5
+    sudo nc fbida dnf5 \
+    fontconfig google-noto-sans-fonts google-noto-cjk-fonts dejavu-sans-fonts glibc-all-langpacks glibc-gconv-extra kbd kbd-misc
 
 echo "[2/6] Building and installing fowo..."
 make -C "$PROJECT_DIR" all
@@ -172,9 +173,11 @@ cat > "$STAGE_DIR/etc/sysctl.d/20-quiet-printk.conf" << 'EOF'
 kernel.printk = 3 4 1 7
 EOF
 
-# Ensure /usr/local/bin is first in PATH to mitigate application duplication
+# Ensure /usr/local/bin is first in PATH to mitigate application duplication and set UTF-8 locale
 cat > "$STAGE_DIR/etc/profile.d/fowo-path.sh" << 'EOF'
 export PATH="/usr/local/bin:$PATH"
+export LANG="C.UTF-8"
+export LC_ALL="C.UTF-8"
 EOF
 chmod 755 "$STAGE_DIR/etc/profile.d/fowo-path.sh"
 
